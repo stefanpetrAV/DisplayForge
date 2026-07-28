@@ -172,7 +172,7 @@ The exported OBJ files can be imported directly into applications such as Disgui
 
 # Export
 
-The application exports standard Wavefront OBJ meshes with:
+The application exports standard OBJ meshes with:
 
 - Vertex positions
 - Normals
@@ -180,6 +180,5 @@ The application exports standard Wavefront OBJ meshes with:
 - Position baked into geometry
 - Rotation baked into geometry
 
-No additional transforms are required after import.
 
 ---
