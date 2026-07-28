@@ -4,7 +4,7 @@ Parametric tools for LED display design and media server workflows
 
 > Design, preview and export compound-curve LED walls and custom-shaped displays for Media Servers and 3d Engines.
 
-DisplayForge Compound Curve is a parametric design tool for creating LED walls ranging from simple flat surfaces to complex compound curves and custom shapes. It exports standard Wavefront OBJ files that can be imported directly into Disguise, Pixera, Blender, Unreal Engine, and other 3D applications.
+DisplayForge is a parametric design tool for creating LED walls ranging from simple flat surfaces to complex compound curves and custom shapes. It exports standard Wavefront OBJ files that can be imported directly into Disguise, Pixera, Blender, Unreal Engine, and other 3D applications.
 
 ![Screenshot](images/{7C0F7EE2-1F29-4BB5-A89D-888A912DEDE2}.png)
 ![Screenshot](images/{384A207E-18C0-4F9C-90DC-0BB31DE3EC58}.png)
