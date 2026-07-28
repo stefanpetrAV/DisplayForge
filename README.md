@@ -13,7 +13,7 @@ DisplayForge is a parametric design tool for creating LED walls ranging from sim
 The application is available in two versions sharing the same geometry engine:
 
 - **Disguise Plugin** – optimized for use inside Designer.
-- **Standalone Application** – full-featured version with interactive 3D visualization.
+- **Standalone Application** – full-featured portable version with interactive 3D visualization.
 
 ---
 
