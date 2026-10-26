@@ -20,10 +20,10 @@ The application is available in two versions sharing the same geometry engine:
 
 Download the current [Disguise plugin package](DisplayForge_Plugin.zip) or
 [standalone web package](DisplayForge_Standalone.zip) from the repository.
-The plugin ZIP contains a `dist` folder; copy its contents into a dedicated
-folder under Designer's `Plugins` directory so `d3plugin.json` is at the plugin
-root. For the standalone package, extract the ZIP and serve the extracted
-folder over HTTP, then open `standalone.html`.
+The plugin ZIP contains a `DisplayForge_Plugin` folder ready to extract into
+Designer's `Plugins` directory. Its root contains `d3plugin.json`, `index.html`,
+`icon.svg`, and the `assets` folder. For the standalone package, extract the
+ZIP and serve the extracted folder over HTTP, then open `standalone.html`.
 
 ---
 
@@ -194,6 +194,6 @@ The exported OBJ files can be imported directly into applications such as Disgui
 
 ## Release contents
 
-- `DisplayForge_Plugin.zip` — Disguise plugin build, including the standalone web entry point.
+- `DisplayForge_Plugin.zip` — Disguise plugin build in a `DisplayForge_Plugin` folder, including the standalone web entry point.
 - `DisplayForge_Standalone.zip` — standalone web application.
 - `DisplayForge 0.4.0.exe` — existing executable, unchanged.

@@ -23,8 +23,9 @@ This release updates the Disguise plugin and standalone web application.
 
 ## Packages
 
-- `DisplayForge_Plugin.zip` — extract the contents of its `dist` folder into a
-  dedicated plugin folder under the Designer project's `Plugins` directory.
+- `DisplayForge_Plugin.zip` — extract the included `DisplayForge_Plugin` folder
+  into the Designer project's `Plugins` directory. The plugin manifest and
+  entry page are at the plugin folder root; there is no nested `dist` folder.
 - `DisplayForge_Standalone.zip` — extract and serve over HTTP, then open
   `standalone.html`.
 
