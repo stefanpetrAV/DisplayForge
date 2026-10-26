@@ -1,4 +1,4 @@
-# DisplayForge 0.5.4
+# DisplayForge 0.5.0
 
 Release date: 2026-10-26
 

@@ -2,7 +2,7 @@
 
 Parametric tools for LED display design and media server workflows
 
-**Current web/plugin release: 0.5.4** — [release notes](RELEASE_NOTES.md)
+**Current web/plugin release: 0.5.0** — [release notes](RELEASE_NOTES.md)
 
 > Design, preview and export compound-curve LED walls and custom-shaped displays for Media Servers and 3d Engines.
 
