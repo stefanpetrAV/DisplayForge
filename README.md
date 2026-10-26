@@ -16,10 +16,11 @@ The application is available in two versions sharing the same geometry engine:
 
 - **Disguise Plugin** – optimized for use inside Designer.
 - **Standalone Web Application** – full-featured version with interactive 3D visualization.
-- **Standalone Windows Application** – the prebuilt 0.4.0 executable; it is not updated in this release because its source/build project is unavailable.
+- **Standalone Windows Application** – portable Windows x64 executable, updated to 0.5.0 with the interactive 3D preview.
 
 Download the current [Disguise plugin package](DisplayForge_Plugin.zip) or
-[standalone web package](DisplayForge_Standalone.zip) from the repository.
+[standalone web package](DisplayForge_Standalone.zip), or launch the
+[portable Windows application](DisplayForge%200.5.0.exe).
 The plugin ZIP contains a `DisplayForge_Plugin` folder ready to extract into
 Designer's `Plugins` directory. Its root contains `d3plugin.json`, `index.html`,
 `icon.svg`, and the `assets` folder. For the standalone package, extract the
@@ -196,4 +197,5 @@ The exported OBJ files can be imported directly into applications such as Disgui
 
 - `DisplayForge_Plugin.zip` — Disguise plugin build in a `DisplayForge_Plugin` folder, including the standalone web entry point.
 - `DisplayForge_Standalone.zip` — standalone web application.
-- `DisplayForge 0.4.0.exe` — existing executable, unchanged.
+- `DisplayForge 0.5.0.exe` — portable Windows x64 standalone application.
+- `DisplayForge 0.4.0.exe` — previous portable build, retained for compatibility.

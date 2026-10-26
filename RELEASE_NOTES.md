@@ -28,6 +28,8 @@ This release updates the Disguise plugin and standalone web application.
   entry page are at the plugin folder root; there is no nested `dist` folder.
 - `DisplayForge_Standalone.zip` — extract and serve over HTTP, then open
   `standalone.html`.
+- `DisplayForge 0.5.0.exe` — portable Windows x64 standalone application; run
+  the executable directly without installing it.
 
 ## Compatibility and validation
 
@@ -38,6 +40,7 @@ This release updates the Disguise plugin and standalone web application.
   recalculation, manual row edits, Rectangle reset and mocked plugin
   integration. Import and LED-screen resource creation should still be
   confirmed in the target Disguise Designer version and project.
-- `DisplayForge 0.4.0.exe` is unchanged. Its application source and build
-  project are not present in the repository, so it could not be rebuilt for
-  this release.
+- The portable Windows application was rebuilt with the 0.5.0 standalone
+  interface and smoke-tested to confirm the Electron app launches and renders
+  the screen editor. `DisplayForge 0.4.0.exe` is retained as the previous
+  portable build.
