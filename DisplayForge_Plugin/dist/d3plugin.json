@@ -1,0 +1,6 @@
+{
+  "name": "DisplayForge",
+  "description": "Parametric LED wall builder with automatic LED screen creation in Designer.",
+  "version": "0.5.4",
+  "entry": "index.html"
+}

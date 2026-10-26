@@ -2,6 +2,8 @@
 
 Parametric tools for LED display design and media server workflows
 
+**Current web/plugin release: 0.5.4** — [release notes](RELEASE_NOTES.md)
+
 > Design, preview and export compound-curve LED walls and custom-shaped displays for Media Servers and 3d Engines.
 
 DisplayForge is a parametric design tool for creating LED walls ranging from simple flat surfaces to complex compound curves and custom shapes. It exports standard Wavefront OBJ files that can be imported directly into Disguise, Pixera, Blender, Unreal Engine, and other 3D applications.
@@ -13,7 +15,15 @@ DisplayForge is a parametric design tool for creating LED walls ranging from sim
 The application is available in two versions sharing the same geometry engine:
 
 - **Disguise Plugin** – optimized for use inside Designer.
-- **Standalone Application** – full-featured portable version with interactive 3D visualization.
+- **Standalone Web Application** – full-featured version with interactive 3D visualization.
+- **Standalone Windows Application** – the prebuilt 0.4.0 executable; it is not updated in this release because its source/build project is unavailable.
+
+Download the current [Disguise plugin package](DisplayForge_Plugin.zip) or
+[standalone web package](DisplayForge_Standalone.zip) from the repository.
+The plugin ZIP contains a `dist` folder; copy its contents into a dedicated
+folder under Designer's `Plugins` directory so `d3plugin.json` is at the plugin
+root. For the standalone package, extract the ZIP and serve the extracted
+folder over HTTP, then open `standalone.html`.
 
 ---
 
@@ -42,6 +52,28 @@ Generate displays in several predefined layouts:
 - Circle
 
 Every generated shape can be manually edited row by row for complete control over cabinet placement.
+
+Triangle, circle and diamond defaults fit the physical tile and display
+dimensions. Circle and diamond profiles account for tile aspect ratio and keep
+rows centered with exact left/right symmetry. Changing tile dimensions
+recalculates the auto-fit parameters. For example, a 10-by-10 grid of square
+tiles produces a circle profile of 4/8/8/10/10/10/10/8/8/4. Manual row edits
+remain available, and switching back to Rectangle restores full-width rows.
+
+## Create LED Screen in Disguise
+
+The plugin's **Create LED Screen** action exports the current mesh through the
+existing OBJ download workflow, then waits asynchronously for Designer to
+load and validate the OBJ before creating the LED screen. It assigns the
+generated mesh, applies the pixel resolution configured in DisplayForge, and
+adds the screen to the active stage. The plugin uses Designer's
+`objects/meshfromobj/<mesh-name>.obj` resource path while the OBJ is stored in
+the project's existing `objects/Mesh` folder; it does not create a physical
+`objects/meshfromobj` directory.
+
+Designer resource creation and import behavior should be validated against
+the target Designer version and project. The release's browser tests use a
+mocked Designer API and do not replace that in-Designer validation.
 
 ---
 
@@ -129,7 +161,7 @@ The Disguise plugin intentionally excludes the 3D viewer because Designer's embe
 
 ---
 
-# Export
+# OBJ Export
 
 DisplayForge exports production-ready Wavefront OBJ files with all geometric data already prepared for use in real-time rendering and content creation workflows.
 
@@ -160,25 +192,8 @@ The exported OBJ files can be imported directly into applications such as Disgui
 
 ---
 
-# Supported Shapes
+## Release contents
 
-- Rectangle
-- Triangle
-- Circle
-- Diamond
-- Manual row editing
-
----
-
-# Export
-
-The application exports standard OBJ meshes with:
-
-- Vertex positions
-- Normals
-- Origin baked into geometry
-- Position baked into geometry
-- Rotation baked into geometry
-
-
----
+- `DisplayForge_Plugin.zip` — Disguise plugin build, including the standalone web entry point.
+- `DisplayForge_Standalone.zip` — standalone web application.
+- `DisplayForge 0.4.0.exe` — existing executable, unchanged.
