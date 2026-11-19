@@ -69,7 +69,7 @@ Screens are saved automatically:
 
 **Create LED Screen in Designer** (plugin only) exports the active screen's OBJ
 through the normal download workflow, waits asynchronously for Designer to
-load and validate the mesh (`objects/meshfromobj/<name>.obj`), then creates or
+load and validate the mesh from the project's `objects/Mesh/<name>.obj`, then creates or
 updates `objects/ledscreen/<name>.apx`, assigns the mesh, sets the pixel
 resolution shown in DisplayForge and adds the screen to the stage. The file /
 resource name is derived from the screen name (lowercase, `a-z 0-9 _ -`).

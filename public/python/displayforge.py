@@ -23,6 +23,30 @@ def _valid_name(display_name):
     return name
 
 
+def _find_mesh_path(name):
+    """Project-relative path of <name>.obj in objects/Mesh, or None if it is not there yet."""
+    import d3
+
+    file_name = "%s.obj" % name
+    folder = _project_folder()
+    if folder is not None:
+        objects = os.path.join(folder, "objects")
+        for entry in os.listdir(objects):
+            if entry.lower() == "mesh" and os.path.isdir(os.path.join(objects, entry)):
+                for candidate in os.listdir(os.path.join(objects, entry)):
+                    if candidate.lower() == file_name:
+                        return "objects/%s/%s" % (entry, candidate)
+        return None
+    # Project folder unknown: ask Designer whether the resource file exists.
+    for path in ("objects/Mesh/%s" % file_name, "objects/mesh/%s" % file_name):
+        try:
+            if d3.resourceManager.exists(d3.Path(path)):
+                return path
+        except Exception:
+            pass
+    return None
+
+
 def create_led_screen(display_name, resolution_x, resolution_y):
     import d3
 
@@ -32,7 +56,17 @@ def create_led_screen(display_name, resolution_x, resolution_y):
     if width <= 0 or height <= 0:
         raise ValueError("The display resolution must be greater than zero.")
 
-    mesh_path = "objects/meshfromobj/%s.obj" % name
+    # Designer keeps OBJ meshes in <project>/objects/Mesh (this is where the
+    # plugin's OBJ download lands). Never load from a path that does not exist
+    # yet: Designer would register a resource there and create the folder
+    # (0.5.x used "objects/meshfromobj/...", which created a bogus folder).
+    mesh_path = _find_mesh_path(name)
+    if mesh_path is None:
+        return json.dumps({
+            "ok": False,
+            "pending": True,
+            "error": "%s.obj is not in the project's objects/Mesh folder yet." % name,
+        })
     try:
         mesh = d3.resourceManager.load(d3.Path(mesh_path), d3.MeshFromObj)
     except Exception as error:

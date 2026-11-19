@@ -31,13 +31,17 @@ been patched by hand, which is how the bugs below were introduced.
   direction; back faces are now dark grey.
 - **Create LED Screen** no longer scrapes values from the page DOM; it uses the
   active screen's data directly and records the created resource per screen.
+- **Bogus `objects/meshfromobj` folder.** 0.5.x loaded the mesh from
+  `objects/meshfromobj/<name>.obj`, a path that does not exist in a Designer
+  project, so Designer created that folder. The mesh is now loaded from
+  `objects/Mesh` (where OBJ files belong) and only once the file is there.
+  An existing `objects/meshfromobj` folder from 0.5.x can be deleted.
 - OBJ download URLs stay valid for 30 s, so slow hosts can finish the download.
 
 ## Unchanged
 
 - Hinge-angle semantics (angle at the joint before each column of a run).
-- Designer resource paths: `objects/meshfromobj/<name>.obj`,
-  `objects/ledscreen/<name>.apx`.
+- LED screen resource path: `objects/ledscreen/<name>.apx`.
 
 ## Validation
 
