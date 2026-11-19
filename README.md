@@ -16,7 +16,7 @@ The application is available in several versions built from the same source code
 
 - **Disguise Plugin** – runs inside Designer and can create the LED screen directly.
 - **Standalone Web Application** – full-featured version with interactive 3D visualization.
-- **Standalone Windows Application** – portable Windows x64 executable (currently still the 0.5.0 build, see below).
+- **Standalone Windows Application** – portable Windows x64 executable, available on the [Releases page](https://github.com/stefanpetrAV/DisplayForge/releases) (`DisplayForge 0.6.0.exe`). Saved screens are kept between sessions.
 
 Download the [Disguise plugin package](DisplayForge_Plugin.zip) or the
 [standalone web package](DisplayForge_Standalone.zip).
@@ -123,6 +123,8 @@ npm run dev        # http://localhost:5173/ (plugin page) and /standalone.html
 npm test           # geometry / convention unit tests (vitest)
 npm run build      # type-check + build into dist/
 npm run package    # build + DisplayForge_Plugin.zip / DisplayForge_Standalone.zip
+npm run desktop    # run the standalone app in Electron
+npm run package:exe  # portable Windows exe -> release/desktop/DisplayForge <version>.exe
 ```
 
 | Path | Content |
@@ -133,9 +135,11 @@ npm run package    # build + DisplayForge_Plugin.zip / DisplayForge_Standalone.z
 | `src/App.vue` | UI shared by plugin (`index.html`) and standalone (`standalone.html`) |
 | `public/python/displayforge.py` | Python module registered in Designer (LED screen creation, project storage) |
 | `public/d3plugin.json` | Designer plugin manifest |
+| `desktop/main.cjs` | Electron wrapper for the portable Windows build |
 
 ## Release contents
 
 - `DisplayForge_Plugin.zip` — Disguise plugin (`DisplayForge_Plugin` folder; also contains the standalone page).
 - `DisplayForge_Standalone.zip` — standalone web application.
-- `DisplayForge 0.5.0.exe`, `DisplayForge 0.4.0.exe` — previous portable Windows builds. They predate the 0.6.0 fixes; the Electron wrapper source is not in this repository.
+- `DisplayForge 0.6.0.exe` — portable Windows x64 standalone app, attached to the GitHub release (not committed: large binaries belong in Releases).
+- `DisplayForge 0.5.0.exe`, `DisplayForge 0.4.0.exe` — previous builds kept in the repository; they predate the 0.6.0 fixes.

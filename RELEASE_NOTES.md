@@ -38,6 +38,12 @@ been patched by hand, which is how the bugs below were introduced.
   An existing `objects/meshfromobj` folder from 0.5.x can be deleted.
 - OBJ download URLs stay valid for 30 s, so slow hosts can finish the download.
 
+## Added
+
+- Portable Windows build `DisplayForge 0.6.0.exe` (Electron wrapper in
+  `desktop/`, `npm run package:exe`), built from the same source as the web
+  standalone app. Screens are remembered between sessions.
+
 ## Unchanged
 
 - Hinge-angle semantics (angle at the joint before each column of a run).

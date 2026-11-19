@@ -3,24 +3,36 @@
   "private": true,
   "version": "0.6.0",
   "description": "Parametric LED wall builder (compound curves, custom shapes) with OBJ export and a disguise Designer plugin.",
+  "author": "DisplayForge",
   "type": "module",
+  "main": "desktop/main.cjs",
   "scripts": {
     "dev": "vite",
     "build": "vue-tsc --noEmit && vite build",
     "test": "vitest run",
     "typecheck": "vue-tsc --noEmit",
-    "package": "npm run build && node scripts/package.mjs"
-  },
-  "dependencies": {
-    "three": "0.168.0",
-    "vue": "3.4.38"
+    "package": "npm run build && node scripts/package.mjs",
+    "desktop": "npm run build && electron .",
+    "package:exe": "npm run build && electron-builder --win portable --x64"
   },
   "devDependencies": {
     "@types/three": "0.168.0",
     "@vitejs/plugin-vue": "5.1.4",
+    "electron": "33.2.0",
+    "electron-builder": "25.1.8",
+    "three": "0.168.0",
     "typescript": "5.5.4",
     "vite": "5.4.10",
     "vitest": "2.1.4",
+    "vue": "3.4.38",
     "vue-tsc": "2.1.6"
+  },
+  "build": {
+    "appId": "com.displayforge.standalone",
+    "productName": "DisplayForge",
+    "directories": { "output": "release/desktop" },
+    "files": ["dist/**/*", "desktop/**/*", "package.json"],
+    "win": { "icon": "public/icon.png", "target": [{ "target": "portable", "arch": ["x64"] }] },
+    "portable": { "artifactName": "DisplayForge ${version}.exe" }
   }
 }
