@@ -2,9 +2,9 @@
 
 Parametric tools for LED display design and media server workflows
 
-**Current web/plugin release: 0.5.0** — [release notes](RELEASE_NOTES.md)
+**Current web/plugin release: 0.6.0** — [release notes](RELEASE_NOTES.md)
 
-> Design, preview and export compound-curve LED walls and custom-shaped displays for Media Servers and 3d Engines.
+> Design, preview and export compound-curve LED walls and custom-shaped displays for Media Servers and 3D engines.
 
 DisplayForge is a parametric design tool for creating LED walls ranging from simple flat surfaces to complex compound curves and custom shapes. It exports standard Wavefront OBJ files that can be imported directly into Disguise, Pixera, Blender, Unreal Engine, and other 3D applications.
 
@@ -12,19 +12,18 @@ DisplayForge is a parametric design tool for creating LED walls ranging from sim
 ![Screenshot](images/{384A207E-18C0-4F9C-90DC-0BB31DE3EC58}.png)
 ![Screenshot](images/{C60D4346-E471-4DC2-8164-5078944E5692}.png)
 
-The application is available in two versions sharing the same geometry engine:
+The application is available in several versions built from the same source code (`src/`):
 
-- **Disguise Plugin** – optimized for use inside Designer.
+- **Disguise Plugin** – runs inside Designer and can create the LED screen directly.
 - **Standalone Web Application** – full-featured version with interactive 3D visualization.
-- **Standalone Windows Application** – portable Windows x64 executable, updated to 0.5.0 with the interactive 3D preview.
+- **Standalone Windows Application** – portable Windows x64 executable, available on the [Releases page](https://github.com/stefanpetrAV/DisplayForge/releases) (`DisplayForge 0.6.0.exe`). Saved screens are kept between sessions.
 
-Download the current [Disguise plugin package](DisplayForge_Plugin.zip) or
-[standalone web package](DisplayForge_Standalone.zip), or launch the
-[portable Windows application](DisplayForge%200.5.0.exe).
+Download the [Disguise plugin package](DisplayForge_Plugin.zip) or the
+[standalone web package](DisplayForge_Standalone.zip).
 The plugin ZIP contains a `DisplayForge_Plugin` folder ready to extract into
-Designer's `Plugins` directory. Its root contains `d3plugin.json`, `index.html`,
-`icon.svg`, and the `assets` folder. For the standalone package, extract the
-ZIP and serve the extracted folder over HTTP, then open `standalone.html`.
+Designer's `Plugins` directory; its root contains `d3plugin.json`, `index.html`,
+`icon.svg`, `python/` and `assets/`. For the standalone package, extract the
+ZIP, serve the extracted folder over HTTP and open `standalone.html`.
 
 ---
 
@@ -32,170 +31,115 @@ ZIP and serve the extracted folder over HTTP, then open `standalone.html`.
 
 ## Compound Curve Engine
 
-Create LED walls composed of multiple consecutive runs:
+Create LED walls composed of multiple consecutive runs (straight, curved, straight → curved → straight, unlimited sequences).
 
-- Straight sections
-- Curved sections
-- Straight → Curved → Straight combinations
-- Unlimited run sequences
-
-Geometry is generated using the same core algorithms as the main DisplayForge application.
-
----
+Each run has a column count and a **hinge angle**. The angle is applied at the
+joint *before* every column of the run, including the joint with the previous
+run, so a one-column run works as a single hinge between two sections.
+Positive angles bend the wall towards the audience.
 
 ## Shape Generator
 
-Generate displays in several predefined layouts:
+Rectangle, Triangle, Circle and Diamond layouts, plus **Custom** rows edited by hand.
 
-- Rectangle
-- Triangle
-- Diamond
-- Circle
+- **Rows are numbered top-to-bottom: Row 1 is the top row.** The 2D grid, the
+  row table, the 3D preview and the exported OBJ all use this convention.
+- Triangle, circle and diamond sizes can auto-fit the physical tile and grid
+  dimensions (untick *Auto-fit size* to keep a manual value). Circle and
+  diamond profiles account for tile aspect ratio and keep exact left/right
+  symmetry; e.g. a 10×10 grid of square tiles gives the circle profile
+  4/8/8/10/10/10/10/8/8/4.
+- Editing a row by hand switches the shape to *Custom*, so later grid changes
+  never overwrite manual rows.
 
-Every generated shape can be manually edited row by row for complete control over cabinet placement.
+## Multiple Screens and memory
 
-Triangle, circle and diamond defaults fit the physical tile and display
-dimensions. Circle and diamond profiles account for tile aspect ratio and keep
-rows centered with exact left/right symmetry. Changing tile dimensions
-recalculates the auto-fit parameters. For example, a 10-by-10 grid of square
-tiles produces a circle profile of 4/8/8/10/10/10/10/8/8/4. Manual row edits
-remain available, and switching back to Rectangle restores full-width rows.
+Both the plugin and the standalone app manage a list of screens (add,
+duplicate, rename, delete). Each screen keeps its own tile spec, runs, shape,
+placement and the record of the LED screen created in Designer.
+
+Screens are saved automatically:
+
+- **Plugin** – in the Designer project, file `displayforge/screens.json`
+  inside the project folder (plus a local browser copy). Reopening the plugin
+  in the same project restores all screens.
+- **Standalone** – in the browser's local storage.
 
 ## Create LED Screen in Disguise
 
-The plugin's **Create LED Screen** action exports the current mesh through the
-existing OBJ download workflow, then waits asynchronously for Designer to
-load and validate the OBJ before creating the LED screen. It assigns the
-generated mesh, applies the pixel resolution configured in DisplayForge, and
-adds the screen to the active stage. The plugin uses Designer's
-`objects/meshfromobj/<mesh-name>.obj` resource path while the OBJ is stored in
-the project's existing `objects/Mesh` folder; it does not create a physical
-`objects/meshfromobj` directory.
-
-Designer resource creation and import behavior should be validated against
-the target Designer version and project. The release's browser tests use a
-mocked Designer API and do not replace that in-Designer validation.
-
----
+**Create LED Screen in Designer** (plugin only) exports the active screen's OBJ
+through the normal download workflow, waits asynchronously for Designer to
+load and validate the mesh from the project's `objects/Mesh/<name>.obj`, then creates or
+updates `objects/ledscreen/<name>.apx`, assigns the mesh, sets the pixel
+resolution shown in DisplayForge and adds the screen to the stage. The file /
+resource name is derived from the screen name (lowercase, `a-z 0-9 _ -`).
 
 ## Transform Tools
 
-Precisely position every display using:
+Origin (left end / center / right end of the wall × bottom / middle / top),
+world position and X/Y/Z rotation. An automatic orientation turns the middle
+of a curved wall towards +Z first. All transforms are baked into the OBJ.
 
-- Custom origin point
-- World position
-- Rotation on X/Y/Z
-- Automatic front orientation for curved walls
+## Coordinate conventions
 
-Unlike renderer-only transformations, all transforms are baked directly into the exported OBJ geometry.
+| | |
+|---|---|
+| Units | metres |
+| Axes | right-handed, +Y up (OBJ / three.js) |
+| Front of the wall | faces +Z (the audience); back faces are drawn dark grey in the 3D preview |
+| Columns | left → right as seen from the front |
+| Rows | top → bottom (Row 1 = top) |
+| UV | u = 0 left → 1 right, v = 0 bottom → 1 top, over the full unrolled grid |
+| Plan view | top-down, +X right, front/audience (+Z) at the bottom |
 
----
-
-## Automatic UV Mapping
-
-Every exported mesh includes a complete, non-overlapping UV map generated automatically during the export process.
-
-This allows the OBJ file to be immediately texture-ready, eliminating the need for manual UV unwrapping in external 3D software and significantly speeding up content creation workflows.
-
----
-
-## Tile Configuration
-
-DisplayForge is fully parametric and allows every project to be built using any LED cabinet specification.
-
-For each tile you can define:
-
-- Physical width
-- Physical height
-- Horizontal resolution (pixels)
-- Vertical resolution (pixels)
-
-All geometry, dimensions, and exported meshes are automatically generated from these values.
-
-The software continuously calculates and displays the overall display specifications, including:
-
-- Total physical width
-- Total physical height
-- Total horizontal resolution
-- Total vertical resolution
-- Total pixel count
-
-This allows designers to instantly verify both the physical size and the effective resolution of the LED wall while editing, regardless of its shape or compound-curve configuration.
----
-
-## Multiple Screens (Standalone)
-
-The standalone version supports complete multi-screen projects.
-
-Each screen has its own:
-
-- Tile specifications
-- Compound curve
-- Shape
-- Position
-- Rotation
-
-Functions include:
-
-- Add
-- Duplicate
-- Rename
-- Delete
-
-All screens can be exported individually or merged into a single OBJ file.
-
----
+The plan view and the 3D preview are generated from the same world-space
+points as the exported mesh, so they always agree.
 
 ## Interactive 3D Preview
 
-Available only in the standalone version.
-
-Features include:
-
-- Orbit controls
-- Real-time geometry updates
-- Multi-screen visualization
-- Automatic framing
-- Simultaneous 2D plan view
-
-The Disguise plugin intentionally excludes the 3D viewer because Designer's embedded browser currently does not expose a usable WebGL context.
-
----
-
-# OBJ Export
-
-DisplayForge exports production-ready Wavefront OBJ files with all geometric data already prepared for use in real-time rendering and content creation workflows.
-
-Each exported mesh includes:
-
-- Optimized geometry
-- Vertex normals
-- Fully generated UV mapping
-- Origin baked into the mesh
-- Position baked into the mesh
-- Rotation baked into the mesh
-
-The generated UV layout is automatically created during mesh generation, allowing textures, media, or calibration assets to be applied immediately without requiring manual UV unwrapping in external 3D software.
-
-The exported OBJ files can be imported directly into applications such as Disguise Designer, Pixera, Blender, Unreal Engine, Unity, and other software supporting the Wavefront OBJ format.
+Orbit controls, real-time updates, multi-screen visualization, automatic
+framing. In the plugin it is an optional, collapsible panel (Designer's
+embedded browser may not provide WebGL; a fallback message is shown).
 
 # Plugin vs Standalone
 
 | Feature | Plugin | Standalone |
 |----------|---------|------------|
 | Runs inside Disguise Designer | ✔ | ✖ |
-| 3D Preview | ✖ | ✔ |
-| Multiple Screens | ✖ | ✔ |
-| OBJ Export | ✔ | ✔ |
-| Shape Generator | ✔ | ✔ |
-| Compound Curves | ✔ | ✔ |
-| Origin & Transform Tools | ✔ | ✔ |
+| Create LED screen in Designer | ✔ | ✖ |
+| Multiple screens | ✔ | ✔ |
+| Screens remembered | ✔ (in the Designer project) | ✔ (browser) |
+| 3D preview | optional | ✔ |
+| OBJ export (single / all merged) | ✔ | ✔ |
+| Shape generator, compound curves, transforms | ✔ | ✔ |
 
 ---
 
+# Development
+
+```
+npm install
+npm run dev        # http://localhost:5173/ (plugin page) and /standalone.html
+npm test           # geometry / convention unit tests (vitest)
+npm run build      # type-check + build into dist/
+npm run package    # build + DisplayForge_Plugin.zip / DisplayForge_Standalone.zip
+npm run desktop    # run the standalone app in Electron
+npm run package:exe  # portable Windows exe -> release/desktop/DisplayForge <version>.exe
+```
+
+| Path | Content |
+|---|---|
+| `src/core/` | geometry engine (tile chain, mesh, shapes, placement, OBJ) — framework-free, unit-tested |
+| `src/state/` | screen store + persistence, Designer Python bridge |
+| `src/components/` | Vue components (editors, plan view, 3D viewer) |
+| `src/App.vue` | UI shared by plugin (`index.html`) and standalone (`standalone.html`) |
+| `public/python/displayforge.py` | Python module registered in Designer (LED screen creation, project storage) |
+| `public/d3plugin.json` | Designer plugin manifest |
+| `desktop/main.cjs` | Electron wrapper for the portable Windows build |
+
 ## Release contents
 
-- `DisplayForge_Plugin.zip` — Disguise plugin build in a `DisplayForge_Plugin` folder, including the standalone web entry point.
+- `DisplayForge_Plugin.zip` — Disguise plugin (`DisplayForge_Plugin` folder; also contains the standalone page).
 - `DisplayForge_Standalone.zip` — standalone web application.
-- `DisplayForge 0.5.0.exe` — portable Windows x64 standalone application.
-- `DisplayForge 0.4.0.exe` — previous portable build, retained for compatibility.
+- `DisplayForge 0.6.0.exe` — portable Windows x64 standalone app, attached to the GitHub release (not committed: large binaries belong in Releases).
+- `DisplayForge 0.5.0.exe`, `DisplayForge 0.4.0.exe` — previous builds kept in the repository; they predate the 0.6.0 fixes.
