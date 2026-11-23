@@ -1,3 +1,18 @@
+# DisplayForge 0.7.1
+
+Release date: 2026-11-23
+
+## Fixed
+
+- **"Designer project storage unavailable (Designer Python API: HTTP 500)".**
+  Designer runs plugin code with globals where the name `os` is a Designer
+  object (`d3.OS`), not Python's `os` module, so every call that looked for the
+  project folder failed with `'OS' object has no attribute 'path'`. Screens
+  were then kept only in the browser, and saving the OBJ / creating the LED
+  screen could not find the project folder either. The module now uses a
+  private alias of the `os` module. Checked against a running Designer:
+  `project_info` and `load_state` answer correctly.
+
 # DisplayForge 0.7.0
 
 Release date: 2026-11-23

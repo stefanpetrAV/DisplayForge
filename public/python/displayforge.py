@@ -15,7 +15,12 @@ __all__ = [
 
 import base64
 import json
-import os
+
+# Designer runs plugin code with its own globals, where the name "os" is a
+# Designer object (d3.OS) that shadows the standard module: _os.path raises
+# "'OS' object has no attribute 'path'". Use a private alias, which star
+# imports and injected globals never overwrite.
+import os as _os
 
 STATE_FOLDER = "displayforge"
 STATE_FILE = "screens.json"
@@ -48,20 +53,20 @@ def _objects_subfolder(wanted, create):
     project = _project_folder()
     if project is None:
         return None, None
-    objects = os.path.join(project, "objects")
-    for entry in os.listdir(objects):
-        if entry.lower() == wanted.lower() and os.path.isdir(os.path.join(objects, entry)):
-            return os.path.join(objects, entry), "objects/%s" % entry
+    objects = _os.path.join(project, "objects")
+    for entry in _os.listdir(objects):
+        if entry.lower() == wanted.lower() and _os.path.isdir(_os.path.join(objects, entry)):
+            return _os.path.join(objects, entry), "objects/%s" % entry
     if not create:
         return None, None
-    folder = os.path.join(objects, wanted)
-    os.makedirs(folder)
+    folder = _os.path.join(objects, wanted)
+    _os.makedirs(folder)
     return folder, "objects/%s" % wanted
 
 
 def _existing_spelling(folder, file_name):
     """Keep the on-disk spelling of a file that already exists (case-insensitive match)."""
-    for candidate in os.listdir(folder):
+    for candidate in _os.listdir(folder):
         if candidate.lower() == file_name.lower():
             return candidate
     return file_name
@@ -72,9 +77,9 @@ def _write_file(path, data):
     temp_path = path + ".partial"
     with open(temp_path, "wb") as handle:
         handle.write(data)
-    if os.path.exists(path):
-        os.remove(path)
-    os.rename(temp_path, path)
+    if _os.path.exists(path):
+        _os.remove(path)
+    _os.rename(temp_path, path)
 
 
 def _load_fresh(relative_path, resource_type):
@@ -99,7 +104,7 @@ def _find_mesh_path(name):
         folder, prefix = _objects_subfolder(MESH_FOLDER, False)
         if folder is None:
             return None
-        for candidate in os.listdir(folder):
+        for candidate in _os.listdir(folder):
             if candidate.lower() == file_name:
                 return "%s/%s" % (prefix, candidate)
         return None
@@ -177,7 +182,7 @@ def save_obj(display_name, text):
     if folder is None:
         return json.dumps({"ok": False, "error": "Could not locate the Designer project folder."})
     file_name = _existing_spelling(folder, "%s.obj" % name)
-    _write_file(os.path.join(folder, file_name), text.encode("utf-8"))
+    _write_file(_os.path.join(folder, file_name), text.encode("utf-8"))
     relative = "%s/%s" % (prefix, file_name)
     try:
         _load_fresh(relative, d3.MeshFromObj)
@@ -201,7 +206,7 @@ def save_population_mask(screen_name, file_name, png_base64, assign):
     if folder is None:
         return json.dumps({"ok": False, "error": "Could not locate the Designer project folder."})
     png_name = _existing_spelling(folder, "%s.png" % file_name)
-    _write_file(os.path.join(folder, png_name), data)
+    _write_file(_os.path.join(folder, png_name), data)
     relative = "%s/%s" % (prefix, png_name)
     result = {"ok": True, "path": relative, "assigned": False}
     if not assign:
@@ -242,27 +247,27 @@ def _candidate_project_folders():
         probe = d3.Path("objects/ledscreen/displayforge-probe.apx")
         directory = str(probe.directory)
         if directory:
-            candidates.append(os.path.dirname(os.path.dirname(os.path.normpath(directory))))
+            candidates.append(_os.path.dirname(_os.path.dirname(_os.path.normpath(directory))))
     except Exception:
         pass
     # 2. The stage resource lives inside the project folder.
     try:
         stage_dir = str(d3.state.stage.path.directory)
         if stage_dir:
-            folder = os.path.normpath(stage_dir)
-            while folder and os.path.basename(folder).lower() != "objects":
-                parent = os.path.dirname(folder)
+            folder = _os.path.normpath(stage_dir)
+            while folder and _os.path.basename(folder).lower() != "objects":
+                parent = _os.path.dirname(folder)
                 if parent == folder:
                     folder = ""
                     break
                 folder = parent
             if folder:
-                candidates.append(os.path.dirname(folder))
+                candidates.append(_os.path.dirname(folder))
     except Exception:
         pass
     # 3. Designer normally runs with the project folder as working directory.
     try:
-        candidates.append(os.getcwd())
+        candidates.append(_os.getcwd())
     except Exception:
         pass
     return candidates
@@ -270,7 +275,7 @@ def _candidate_project_folders():
 
 def _project_folder():
     for folder in _candidate_project_folders():
-        if folder and os.path.isabs(folder) and os.path.isdir(os.path.join(folder, "objects")):
+        if folder and _os.path.isabs(folder) and _os.path.isdir(_os.path.join(folder, "objects")):
             return folder
     return None
 
@@ -279,7 +284,7 @@ def _state_path():
     folder = _project_folder()
     if folder is None:
         return None, None
-    return folder, os.path.join(folder, STATE_FOLDER, STATE_FILE)
+    return folder, _os.path.join(folder, STATE_FOLDER, STATE_FILE)
 
 
 def project_info():
@@ -291,7 +296,7 @@ def load_state():
     folder, path = _state_path()
     if folder is None:
         return json.dumps({"ok": False, "error": "Could not locate the Designer project folder."})
-    if not os.path.isfile(path):
+    if not _os.path.isfile(path):
         return json.dumps({"ok": True, "projectFolder": folder, "data": None})
     with open(path, "r") as handle:
         text = handle.read()
@@ -307,13 +312,13 @@ def save_state(text):
     if folder is None:
         return json.dumps({"ok": False, "error": "Could not locate the Designer project folder."})
     json.loads(text)  # refuse to write invalid JSON
-    directory = os.path.dirname(path)
-    if not os.path.isdir(directory):
-        os.makedirs(directory)
+    directory = _os.path.dirname(path)
+    if not _os.path.isdir(directory):
+        _os.makedirs(directory)
     temp_path = path + ".tmp"
     with open(temp_path, "w") as handle:
         handle.write(text)
-    if os.path.exists(path):
-        os.remove(path)
-    os.rename(temp_path, path)
+    if _os.path.exists(path):
+        _os.remove(path)
+    _os.rename(temp_path, path)
     return json.dumps({"ok": True, "projectFolder": folder, "stateFile": path})
