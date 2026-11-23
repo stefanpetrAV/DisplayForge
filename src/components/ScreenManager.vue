@@ -34,8 +34,16 @@ function commit(id: string) {
   if (draft.value.trim()) emit("rename", id, draft.value);
   editingId.value = null;
 }
-function confirmRemove(item: ScreenListItem) {
-  if (window.confirm(`Delete "${item.name}" from DisplayForge? (The LED screen in Designer, if any, is not deleted.)`)) emit("remove", item.id);
+// Inline confirmation: Designer's embedded browser does not show window.confirm()
+// dialogs (it answers "cancel" at once), so a confirm() here never deleted anything.
+const confirmingId = ref<string | null>(null);
+function askRemove(item: ScreenListItem) {
+  editingId.value = null;
+  confirmingId.value = item.id;
+}
+function doRemove(id: string) {
+  confirmingId.value = null;
+  emit("remove", id);
 }
 </script>
 
@@ -59,10 +67,22 @@ function confirmRemove(item: ScreenListItem) {
         <span v-if="item.inDesigner" class="badge" title="An LED screen was created in Designer from this screen">d3</span>
         <span class="tile-count" title="Tiles">{{ item.tileCount }}</span>
       </button>
-      <div class="row-actions">
+      <div v-if="confirmingId === item.id" class="row-actions confirm" role="group" aria-label="Confirm delete">
+        <span title="The LED screen in Designer, if any, is not deleted">Delete?</span>
+        <button type="button" class="yes" @click="doRemove(item.id)">Yes</button>
+        <button type="button" @click="confirmingId = null">No</button>
+      </div>
+      <div v-else class="row-actions">
         <button type="button" title="Rename" @click="startRename(item)">Rename</button>
         <button type="button" title="Duplicate" @click="emit('duplicate', item.id)">Dup</button>
-        <button type="button" title="Delete" :disabled="screens.length <= 1" @click="confirmRemove(item)">Del</button>
+        <button
+          type="button"
+          :title="screens.length <= 1 ? 'The last screen cannot be deleted' : 'Delete from DisplayForge (the LED screen in Designer is kept)'"
+          :disabled="screens.length <= 1"
+          @click="askRemove(item)"
+        >
+          Del
+        </button>
       </div>
     </div>
     <button type="button" class="dashed" @click="emit('add')">+ Add screen</button>
@@ -84,4 +104,7 @@ function confirmRemove(item: ScreenListItem) {
 .row-actions button { background: none; border: none; color: var(--text-secondary); border-radius: 3px; cursor: pointer; font-size: 10px; padding: 3px 5px; }
 .row-actions button:hover:not(:disabled) { background: var(--panel-alt); color: var(--accent); }
 .row-actions button:disabled { opacity: 0.3; cursor: not-allowed; }
+.confirm { align-items: center; }
+.confirm span { font-size: 10px; color: var(--danger); padding: 0 4px; }
+.confirm .yes { color: var(--danger); }
 </style>

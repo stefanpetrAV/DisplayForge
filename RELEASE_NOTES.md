@@ -1,3 +1,16 @@
+# DisplayForge 0.8.1
+
+Release date: 2026-11-23
+
+## Fixed
+
+- **Deleting a screen did nothing in the plugin.** *Del* asked for
+  confirmation with the browser's `window.confirm()`, which Designer's embedded
+  browser does not show: it answers "cancel" at once, so the screen was never
+  deleted. The confirmation is now inline in the screen row
+  (*Delete? Yes / No*). The LED screen in Designer, if any, is still kept;
+  the last remaining screen cannot be deleted.
+
 # DisplayForge 0.8.0
 
 Release date: 2026-11-23
