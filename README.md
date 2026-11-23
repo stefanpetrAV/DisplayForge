@@ -2,11 +2,19 @@
 
 Parametric tools for LED display design and media server workflows
 
-**Current web/plugin release: 0.6.0** — [release notes](RELEASE_NOTES.md)
+**Current release: 0.8.1** — [release notes](RELEASE_NOTES.md) · [downloads](https://github.com/stefanpetrAV/DisplayForge/releases/latest)
 
 > Design, preview and export compound-curve LED walls and custom-shaped displays for Media Servers and 3D engines.
 
 DisplayForge is a parametric design tool for creating LED walls ranging from simple flat surfaces to complex compound curves and custom shapes. It exports standard Wavefront OBJ files that can be imported directly into Disguise, Pixera, Blender, Unreal Engine, and other 3D applications.
+
+**Highlights**
+
+- **Compound curves and custom shapes** – straight and curved runs, triangle / circle / diamond / custom rows.
+- **Create LED Screen in Disguise** – the plugin writes the OBJ into `objects/Mesh` and creates or updates the LED screen with the right resolution.
+- **Population masks** *(0.7)* – pixel-perfect PNG masks of the lit tiles, for the screen shape and for population variants (e.g. the 14-row configuration of a 15-row wall), set directly as the LED screen's *Population mask*. Automatic proportional scaling to 16384 px for larger screens.
+- **Import OBJ** *(0.8)* – rebuild an editable screen from an existing OBJ: grid and shape from the UV map, tile size and curves from the mesh, placement from a best fit.
+- **Multiple screens**, saved in the Designer project (plugin) or in the browser (standalone).
 
 ![Screenshot](images/{7C0F7EE2-1F29-4BB5-A89D-888A912DEDE2}.png)
 ![Screenshot](images/{384A207E-18C0-4F9C-90DC-0BB31DE3EC58}.png)
@@ -16,10 +24,11 @@ The application is available in several versions built from the same source code
 
 - **Disguise Plugin** – runs inside Designer and can create the LED screen directly.
 - **Standalone Web Application** – full-featured version with interactive 3D visualization.
-- **Standalone Windows Application** – portable Windows x64 executable, available on the [Releases page](https://github.com/stefanpetrAV/DisplayForge/releases) (`DisplayForge 0.6.0.exe`). Saved screens are kept between sessions.
+- **Standalone Windows Application** – portable Windows x64 executable, available on the [Releases page](https://github.com/stefanpetrAV/DisplayForge/releases/latest) (`DisplayForge 0.8.1.exe`). Saved screens are kept between sessions.
 
 Download the [Disguise plugin package](DisplayForge_Plugin.zip) or the
-[standalone web package](DisplayForge_Standalone.zip).
+[standalone web package](DisplayForge_Standalone.zip) (also attached to every
+[release](https://github.com/stefanpetrAV/DisplayForge/releases)).
 The plugin ZIP contains a `DisplayForge_Plugin` folder ready to extract into
 Designer's `Plugins` directory; its root contains `d3plugin.json`, `index.html`,
 `icon.svg`, `python/` and `assets/`. For the standalone package, extract the
@@ -55,7 +64,8 @@ Rectangle, Triangle, Circle and Diamond layouts, plus **Custom** rows edited by 
 ## Multiple Screens and memory
 
 Both the plugin and the standalone app manage a list of screens (add,
-duplicate, rename, delete). Each screen keeps its own tile spec, runs, shape,
+duplicate, rename, delete; deleting asks *Delete? Yes / No* in the row and
+never deletes the LED screen in Designer). Each screen keeps its own tile spec, runs, shape,
 placement and the record of the LED screen created in Designer.
 
 Screens are saved automatically:
@@ -171,8 +181,10 @@ embedded browser may not provide WebGL; a fallback message is shown).
 | Multiple screens | ✔ | ✔ |
 | Screens remembered | ✔ (in the Designer project) | ✔ (browser) |
 | 3D preview | optional | ✔ |
-| OBJ export (single / all merged) | ✔ | ✔ |
+| OBJ export (single / all merged) | ✔ (saved in `objects/Mesh`) | ✔ (download) |
 | Shape generator, compound curves, transforms | ✔ | ✔ |
+| Population masks (screen shape and variants) | ✔ (saved in `objects/DxTexture`, set on the LED screen) | ✔ (download PNG) |
+| Import OBJ | ✔ (project OBJs or local file; tile resolution from the LED screen) | ✔ (local file) |
 
 ---
 
@@ -190,11 +202,11 @@ npm run package:exe  # portable Windows exe -> release/desktop/DisplayForge <ver
 
 | Path | Content |
 |---|---|
-| `src/core/` | geometry engine (tile chain, mesh, shapes, placement, OBJ) — framework-free, unit-tested |
+| `src/core/` | geometry engine (tile chain, mesh, shapes, placement, OBJ), population masks (`mask.ts`), OBJ import (`objImport.ts`) — framework-free, unit-tested |
 | `src/state/` | screen store + persistence, Designer Python bridge |
 | `src/components/` | Vue components (editors, plan view, 3D viewer) |
 | `src/App.vue` | UI shared by plugin (`index.html`) and standalone (`standalone.html`) |
-| `public/python/displayforge.py` | Python module registered in Designer (LED screen creation, project storage) |
+| `public/python/displayforge.py` | Python module registered in Designer (OBJ save, LED screen creation, population masks, project OBJ listing, project storage) |
 | `public/d3plugin.json` | Designer plugin manifest |
 | `desktop/main.cjs` | Electron wrapper for the portable Windows build |
 
@@ -202,5 +214,5 @@ npm run package:exe  # portable Windows exe -> release/desktop/DisplayForge <ver
 
 - `DisplayForge_Plugin.zip` — Disguise plugin (`DisplayForge_Plugin` folder; also contains the standalone page).
 - `DisplayForge_Standalone.zip` — standalone web application.
-- `DisplayForge 0.6.0.exe` — portable Windows x64 standalone app, attached to the GitHub release (not committed: large binaries belong in Releases).
+- `DisplayForge 0.8.1.exe` — portable Windows x64 standalone app, attached to the GitHub release (not committed: large binaries belong in Releases).
 - `DisplayForge 0.5.0.exe`, `DisplayForge 0.4.0.exe` — previous builds kept in the repository; they predate the 0.6.0 fixes.
