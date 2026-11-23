@@ -7,6 +7,6 @@ logo from the official Disguise 2023 logo pack (brand.disguise.one,
 artwork and its built-in clear space are unchanged. If the file is missing,
 test patterns are signed with DisplayForge only.
 
-Brand rules applied (brand.disguise.one): official artwork, white on a dark
-plate, not outlined, shadowed, rotated or distorted, visible logo at least
+Brand rules applied (brand.disguise.one): official artwork in white, directly
+on the pattern (no plate), not outlined, shadowed, rotated or distorted, visible logo at least
 15 px high, official clear space kept, corner placement.

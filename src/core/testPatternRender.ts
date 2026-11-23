@@ -173,8 +173,9 @@ function drawInfo(ctx: CanvasRenderingContext2D, layout: TestPatternLayout, part
 
 /**
  * Bottom-right signature: [Disguise logo]  [DisplayForge icon] DisplayForge.
- * Both sit on one translucent black plate. The Disguise logo is the official landscape
- * artwork, white on black, visible logo at least 15 px high, keeping the
+ * No background plate: the marks sit directly on the pattern at
+ * OVERLAY_ALPHA. The DisplayForge icon has rounded corners. The Disguise logo
+ * is the official landscape artwork in white, visible logo at least 15 px high, keeping the
  * clear space built into the official SVG (brand.disguise.one: black or white
  * only, no outline/shadow/rotation/distortion).
  */
@@ -206,8 +207,6 @@ function drawBranding(ctx: CanvasRenderingContext2D, W: number, H: number, unit:
   const py = H - plateH - pad;
   if (px < 0 || py < 0) return;
 
-  ctx.fillStyle = OVERLAY_PLATE;
-  ctx.fillRect(px, py, plateW, plateH);
   const cy = py + plateH / 2;
   ctx.globalAlpha = OVERLAY_ALPHA;
   let x = px + (logos.disguise ? 0 : pad);
@@ -216,14 +215,37 @@ function drawBranding(ctx: CanvasRenderingContext2D, W: number, H: number, unit:
     x += dgW; // its built-in right clear space separates it from DisplayForge
   }
   if (logos.displayforge) {
+    ctx.save();
+    ctx.beginPath();
+    roundedRect(ctx, x, cy - iconSize / 2, iconSize, iconSize, iconSize * 0.22);
+    ctx.clip();
     ctx.drawImage(logos.displayforge, x, cy - iconSize / 2, iconSize, iconSize);
+    ctx.restore();
     x += iconSize + pad * 0.5;
   }
-  ctx.fillStyle = "#fff";
   ctx.textAlign = "left";
   ctx.textBaseline = "middle";
+  ctx.lineJoin = "round";
+  ctx.lineWidth = textSize * 0.14;
+  ctx.strokeStyle = "rgba(0,0,0,0.7)"; // keeps the wordmark legible on Y / C cells
+  ctx.strokeText(text, x, cy);
+  ctx.fillStyle = "#fff";
   ctx.fillText(text, x, cy);
   ctx.globalAlpha = 1;
+}
+
+/** Rounded-rectangle path; arcTo fallback for browsers without ctx.roundRect. */
+function roundedRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
+  if (typeof ctx.roundRect === "function") {
+    ctx.roundRect(x, y, w, h, r);
+    return;
+  }
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
 }
 
 const STRIP = 256;
