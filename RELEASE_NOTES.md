@@ -1,3 +1,41 @@
+# DisplayForge 0.7.0
+
+Release date: 2026-11-23
+
+## Fixed
+
+- **The plugin still created `objects/meshfromobj`.** Designer files every
+  `.obj` downloaded from a plugin page under `objects/meshfromobj`, so 0.6.0
+  saved the OBJ there and then waited in vain for it in `objects/Mesh`. The
+  plugin no longer downloads OBJ files: *Create LED Screen* and the OBJ
+  buttons write `objects/Mesh/<name>.obj` through Designer's Python API and
+  make Designer re-read a mesh that was already loaded. The standalone app
+  still downloads the OBJ.
+
+## New
+
+- **Population masks.** Each screen can export pixel-perfect population masks
+  (PNG) for disguise: one for the screen's own shape and one per *population
+  variant*, an alternative set of lit tiles on the same mesh (for example the
+  14-row configuration of a 15-row wall). Absent tiles can be transparent or
+  black. Up to 16384 px per side the mask has the screen resolution; larger
+  screens are scaled down automatically and proportionally so the long side is
+  exactly 16384 px, with hard tile edges on the nearest whole pixel (any tile
+  format, square or not).
+  In the plugin the PNG is saved in `objects/DxTexture` and can be set
+  directly as the LED screen's *Population mask*; the standalone app
+  downloads it. Variants and mask options are saved with the screens.
+
+## To verify in Designer
+
+- The OBJ written by Python loads from `objects/Mesh` and no
+  `objects/meshfromobj` folder appears (an existing one can be deleted by hand
+  once its files are no longer used).
+- Updating an existing screen picks up the rewritten OBJ/PNG
+  (`reloadExternal`).
+- How Designer applies a population mask that is smaller than the screen
+  (screens over 16384 px) and how it shows transparent vs black tiles.
+
 # DisplayForge 0.6.0
 
 Release date: 2026-11-19

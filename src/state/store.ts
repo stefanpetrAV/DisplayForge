@@ -1,10 +1,27 @@
 import { computed, reactive, ref, toRaw, watch, type ComputedRef } from "vue";
-import type { Placement, ProjectState, Run, RowSpan, ScreenConfig, ShapeSettings, TileSpec } from "../core/types";
-import { cloneScreen, createScreen, nextScreenName, refit, sanitizeProject, setRowCount, totalColumns } from "../core/screen";
-import { normalizeRows, sanitizePlacement, sanitizeRuns, sanitizeTile } from "../core/sanitize";
+import type { MaskSettings, Placement, ProjectState, Run, RowSpan, ScreenConfig, ShapeSettings, TileSpec } from "../core/types";
+import {
+  cloneScreen,
+  createPopulation,
+  createScreen,
+  nextPopulationName,
+  nextScreenName,
+  refit,
+  sanitizeProject,
+  setRowCount,
+  totalColumns,
+} from "../core/screen";
+import { normalizeRows, sanitizeMask, sanitizePlacement, sanitizeRuns, sanitizeTile } from "../core/sanitize";
 import { buildWall, mergeMeshes, type WallResult } from "../core/wall";
-import { downloadText, meshToObj, resourceName } from "../core/obj";
-import { loadDesignerState, saveDesignerState } from "./designer";
+import { downloadBytes, downloadText, meshToObj, resourceName } from "../core/obj";
+import { bytesToBase64, clipToScreen, encodeMaskPng, maskFileName, maskLayout, type MaskLayout } from "../core/mask";
+import { loadDesignerState, saveDesignerState, saveObjToDesigner, savePopulationMaskToDesigner, type PopulationMaskResult } from "./designer";
+
+export interface MaskExport {
+  fileName: string;
+  layout: MaskLayout;
+  designer?: PopulationMaskResult;
+}
 
 export type AppMode = "plugin" | "standalone";
 export type SyncStatus = "local" | "loading" | "designer" | "designer-error";
@@ -199,9 +216,75 @@ export function createStore(mode: AppMode) {
     active.value.placement = sanitizePlacement(p);
   }
 
+  /* ---------------- population variants ---------------- */
+
+  function findPopulation(id: string) {
+    return active.value.populations.find((p) => p.id === id);
+  }
+
+  function addPopulation() {
+    const s = active.value;
+    s.populations.push(createPopulation(s, nextPopulationName(s)));
+  }
+
+  function duplicatePopulation(id: string) {
+    const s = active.value;
+    const src = findPopulation(id);
+    if (!src) return;
+    const copy = createPopulation(s, `${src.name} copy`);
+    copy.rows = src.rows.map((r) => ({ ...r }));
+    s.populations.push(copy);
+  }
+
+  function removePopulation(id: string) {
+    const s = active.value;
+    s.populations = s.populations.filter((p) => p.id !== id);
+  }
+
+  function renamePopulation(id: string, name: string) {
+    const p = findPopulation(id);
+    if (p && name.trim()) p.name = name.trim();
+  }
+
+  /** Reset a variant to the screen's current shape. */
+  function resetPopulation(id: string) {
+    const p = findPopulation(id);
+    if (p) p.rows = active.value.rows.map((r) => ({ ...r }));
+  }
+
+  function updatePopulationRow(id: string, index: number, patch: Partial<RowSpan>) {
+    const s = active.value;
+    const p = findPopulation(id);
+    if (!p) return;
+    const base = clipToScreen(s.rows, p.rows);
+    const rows = base.map((r, i) => (i === index ? { ...r, ...patch } : r));
+    p.rows = normalizeRows(rows, s.rows.length, totalColumns(s));
+  }
+
+  /** Switch a whole variant row on (screen span) or off (no tiles). */
+  function setPopulationRowLit(id: string, index: number, lit: boolean) {
+    const s = active.value;
+    const row = s.rows[index];
+    if (!row) return;
+    updatePopulationRow(id, index, lit ? { ...row } : { startColumn: row.startColumn, columnCount: 0 });
+  }
+
+  function updateMask(patch: Partial<MaskSettings>) {
+    const s = active.value;
+    s.mask = sanitizeMask({ ...s.mask, ...patch });
+  }
+
+  /** Mask layout of the active screen: its own shape (variantId null) or a variant. */
+  function activeMaskLayout(variantId: string | null): MaskLayout {
+    const s = active.value;
+    const variant = variantId ? findPopulation(variantId) : null;
+    if (variantId && !variant) throw new Error("This population variant no longer exists.");
+    return maskLayout(totalColumns(s), clipToScreen(s.rows, variant?.rows), s.tile);
+  }
+
   /* ---------------- export ---------------- */
 
-  function downloadActiveObj(): { name: string; width: number; height: number } | null {
+  function activeObj(): { name: string; text: string; width: number; height: number } | null {
     errorText.value = "";
     const wall = activeWall.value;
     if (!wall || wall.tileCount === 0) {
@@ -209,19 +292,68 @@ export function createStore(mode: AppMode) {
       return null;
     }
     const name = resourceName(active.value.name);
-    downloadText(meshToObj(wall.mesh, name), `${name}.obj`);
-    return { name, width: wall.resolutionX, height: wall.resolutionY };
+    return { name, text: meshToObj(wall.mesh, name), width: wall.resolutionX, height: wall.resolutionY };
   }
 
-  function downloadAllObj() {
+  /**
+   * Standalone: download the OBJ. Plugin: write it into the project's
+   * objects/Mesh folder through Python (a browser download would be filed by
+   * Designer under objects/meshfromobj).
+   */
+  async function exportActiveObj(): Promise<{ name: string; width: number; height: number; path?: string } | null> {
+    const obj = activeObj();
+    if (!obj) return null;
+    if (mode !== "plugin") {
+      downloadText(obj.text, `${obj.name}.obj`);
+      return obj;
+    }
+    try {
+      const path = await saveObjToDesigner(obj.name, obj.text);
+      return { ...obj, path };
+    } catch (e) {
+      errorText.value = `Could not save the OBJ in the Designer project: ${e instanceof Error ? e.message : e}`;
+      return null;
+    }
+  }
+
+  async function exportAllObj(): Promise<string | null> {
     errorText.value = "";
     const meshes = state.screens.map((s) => derived(s).value?.mesh).filter((m) => m && m.indices.length > 0);
     if (meshes.length === 0) {
       errorText.value = "No valid screens to export.";
-      return;
+      return null;
     }
     const merged = mergeMeshes(meshes as NonNullable<(typeof meshes)[number]>[], "displayforge-scene");
-    downloadText(meshToObj(merged, "displayforge-scene"), "displayforge-scene.obj");
+    const text = meshToObj(merged, "displayforge-scene");
+    if (mode !== "plugin") {
+      downloadText(text, "displayforge-scene.obj");
+      return "displayforge-scene.obj";
+    }
+    try {
+      return await saveObjToDesigner("displayforge-scene", text);
+    } catch (e) {
+      errorText.value = `Could not save the OBJ in the Designer project: ${e instanceof Error ? e.message : e}`;
+      return null;
+    }
+  }
+
+  /**
+   * Build the population mask PNG of the active screen (own shape or a
+   * variant). Standalone: download it. Plugin: write it into objects/DxTexture
+   * and, if enabled, set it as the LED screen's population mask.
+   */
+  async function exportMask(variantId: string | null): Promise<MaskExport> {
+    const s = active.value;
+    const layout = activeMaskLayout(variantId);
+    const variant = variantId ? findPopulation(variantId) : null;
+    const fileName = maskFileName(s.name, variant?.name);
+    const png = await encodeMaskPng(layout, s.mask.absent);
+    if (mode !== "plugin") {
+      downloadBytes(png, `${fileName}.png`, "image/png");
+      return { fileName, layout };
+    }
+    const designer = await savePopulationMaskToDesigner(resourceName(s.name), fileName, bytesToBase64(png), s.mask.assignToScreen);
+    return { fileName, layout, designer };
   }
 
   return {
@@ -245,8 +377,18 @@ export function createStore(mode: AppMode) {
     updateShape,
     updateRow,
     updatePlacement,
-    downloadActiveObj,
-    downloadAllObj,
+    addPopulation,
+    duplicatePopulation,
+    removePopulation,
+    renamePopulation,
+    resetPopulation,
+    updatePopulationRow,
+    setPopulationRowLit,
+    updateMask,
+    activeMaskLayout,
+    exportActiveObj,
+    exportAllObj,
+    exportMask,
   };
 }
 

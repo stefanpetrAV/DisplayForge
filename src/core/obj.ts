@@ -45,3 +45,14 @@ export function downloadText(text: string, filename: string): void {
   // Keep the URL alive long enough for slow hosts (e.g. Designer's download handler).
   window.setTimeout(() => URL.revokeObjectURL(url), 30000);
 }
+
+export function downloadBytes(bytes: Uint8Array, filename: string, type: string): void {
+  const url = URL.createObjectURL(new Blob([bytes], { type }));
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 30000);
+}

@@ -67,12 +67,46 @@ Screens are saved automatically:
 
 ## Create LED Screen in Disguise
 
-**Create LED Screen in Designer** (plugin only) exports the active screen's OBJ
-through the normal download workflow, waits asynchronously for Designer to
-load and validate the mesh from the project's `objects/Mesh/<name>.obj`, then creates or
+**Create LED Screen in Designer** (plugin only) writes the active screen's OBJ
+straight into the project's `objects/Mesh/<name>.obj` through Designer's Python
+API, waits for Designer to load and validate the mesh, then creates or
 updates `objects/ledscreen/<name>.apx`, assigns the mesh, sets the pixel
 resolution shown in DisplayForge and adds the screen to the stage. The file /
 resource name is derived from the screen name (lowercase, `a-z 0-9 _ -`).
+
+In the plugin the OBJ buttons also save into `objects/Mesh` instead of
+downloading: Designer's download handler files downloaded `.obj` files under
+`objects/meshfromobj`, a folder that must not exist in the project.
+
+## Population masks
+
+A population mask is a PNG that tells disguise which pixels of an LED screen
+exist. DisplayForge draws it from the tile grid on the same UVs as the mesh,
+so tile edges always fall on whole pixels:
+
+- **Screen shape** – the tiles of the mesh itself.
+- **Population variants** – alternative sets of lit tiles on the same mesh,
+  e.g. the 14-row configuration of a 15-row wall. Each variant starts as a
+  copy of the screen shape; switch rows off or narrow them in *Edit rows*.
+  A variant can never light a tile the mesh does not have.
+
+Absent tiles are written as **transparent** (the screen is not there) or
+**black** (the screen is there but dark).
+
+**Size.** Up to 16384 px per side the mask has exactly the LED screen
+resolution and every tile is exactly *tile resolution X × Y* pixels, whatever
+the tile format (square or not). When the screen is larger, the mask is scaled
+down automatically and proportionally: one factor for both axes, so the long
+side is exactly 16384 px and the aspect ratio of the screen is kept. Tile
+edges are placed on the whole pixel nearest to their exact UV position, so the
+mask stays hard-edged (no grey pixels) and neighbouring tiles may differ by
+1 px. Example: 84 × 15 tiles of 200 × 200 px (16800 × 3000) give a
+16384 × 2926 mask with 195–196 px tiles. disguise asks for the screen
+resolution, so check how Designer stretches a scaled mask.
+
+In the plugin the mask is saved as `objects/DxTexture/<screen>_<variant>.png`
+(`<screen>_population.png` for the screen shape) and, optionally, set as the
+LED screen's *Population mask*. The standalone app downloads the PNG.
 
 ## Transform Tools
 
