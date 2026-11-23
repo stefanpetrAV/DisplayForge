@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { splitAxis, testPatternFileName, testPatternLayout, tileColorName } from "./testPattern";
+import { levelsSpec, splitAxis, testPatternFileName, testPatternLayout, tileColorName } from "./testPattern";
 import { sanitizeTestPattern } from "./sanitize";
 
 const tile = (x: number, y: number) => ({ tileWidthMm: 500, tileHeightMm: 500, tileResolutionX: x, tileResolutionY: y });
@@ -27,6 +27,27 @@ describe("test pattern colours", () => {
     expect(sanitizeTestPattern({ colors: ["M", "R", "R", "X" as never] }).colors).toEqual(["R", "M"]);
     expect(sanitizeTestPattern({ colors: [] }).colors).toEqual(["R", "G", "B", "Y", "C", "M"]);
     expect(sanitizeTestPattern(undefined).colors).toHaveLength(6);
+  });
+  it("defaults to no colour bars and no range test", () => {
+    expect(sanitizeTestPattern(undefined)).toMatchObject({ colorBars: false, levels: "off" });
+    expect(sanitizeTestPattern({ colorBars: true, levels: "legal" })).toMatchObject({ colorBars: true, levels: "legal" });
+    expect(sanitizeTestPattern({ levels: "bogus" as never }).levels).toBe("off");
+  });
+});
+
+describe("legal / full range test", () => {
+  it("has no test when off", () => expect(levelsSpec("off")).toBeNull());
+  it("legal: steps 16…235, patches straddle video black and white", () => {
+    const l = levelsSpec("legal")!;
+    expect([l.steps[0], l.steps[10], l.steps.length]).toEqual([16, 235, 11]);
+    expect(l.blackPatches.some((v) => v < 16) && l.blackPatches.some((v) => v > 16)).toBe(true);
+    expect(l.whitePatches.some((v) => v < 235) && l.whitePatches.some((v) => v > 235)).toBe(true);
+  });
+  it("full: steps 0…255, every patch inside the range and distinct from its background", () => {
+    const f = levelsSpec("full")!;
+    expect([f.steps[0], f.steps[10]]).toEqual([0, 255]);
+    expect(f.blackPatches.every((v) => v > 0 && v <= 255)).toBe(true);
+    expect(f.whitePatches.every((v) => v >= 0 && v < 255)).toBe(true);
   });
 });
 

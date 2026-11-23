@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from "vue";
 import type { TestPatternLayout } from "../core/testPattern";
-import type { PatternColor } from "../core/types";
+import type { LevelsTest, PatternColor, TestPatternSettings } from "../core/types";
 import { testPatternFileName, PATTERN_COLORS } from "../core/testPattern";
 import { MAX_TEXTURE_SIDE } from "../core/mask";
 import { drawTestPattern, type PatternLogos } from "../core/testPatternRender";
@@ -12,7 +12,7 @@ const props = defineProps<{
   isPlugin: boolean;
   busy: boolean;
 }>();
-const emit = defineEmits<{ generate: []; color: [name: PatternColor, on: boolean] }>();
+const emit = defineEmits<{ generate: []; color: [name: PatternColor, on: boolean]; settings: [patch: Partial<TestPatternSettings>] }>();
 
 const canvas = ref<HTMLCanvasElement | null>(null);
 const resolvedLogos = ref<PatternLogos>({});
@@ -52,7 +52,7 @@ const disguiseMissing = computed(() => props.isPlugin && !resolvedLogos.value.di
   <div class="patterns">
     <p class="hint">
       One checkerboard cell per tile. Every column has one colour, alternating with neutral grey; columns cycle through the
-      selected colours. Each tile shows its row and column, the screen data sits bottom-left, absent tiles are black.
+      selected colours. Each tile shows "row,column", the screen data sits bottom-left, absent tiles are black.
     </p>
     <div class="colors" role="group" aria-label="Pattern colours">
       <label v-for="c in PATTERN_COLORS" :key="c.name" class="color" :class="{ on: layout.colors.includes(c.name) }">
@@ -65,7 +65,20 @@ const disguiseMissing = computed(() => props.isPlugin && !resolvedLogos.value.di
         <span class="swatch" :style="{ background: `rgb(${c.rgb.join(',')})` }">{{ c.name }}</span>
       </label>
       <span class="swatch grey">Grey</span>
+      <span class="sep" />
+      <label class="check">
+        <input type="checkbox" :checked="layout.colorBars" @change="emit('settings', { colorBars: ($event.target as HTMLInputElement).checked })" />
+        Colour bars
+      </label>
     </div>
+    <label class="field levels">
+      <span>Range test under the name</span>
+      <select :value="layout.levels" @change="emit('settings', { levels: ($event.target as HTMLSelectElement).value as LevelsTest })">
+        <option value="off">None</option>
+        <option value="legal">Legal (16–235)</option>
+        <option value="full">Full (0–255)</option>
+      </select>
+    </label>
     <div class="preview-wrap">
       <canvas ref="canvas" class="preview" />
       <div v-for="(x, i) in seams" :key="i" class="seam" :style="{ left: `${x}%` }" />
@@ -97,6 +110,9 @@ const disguiseMissing = computed(() => props.isPlugin && !resolvedLogos.value.di
 .color { display: flex; align-items: center; gap: 4px; font-size: 12px; cursor: pointer; opacity: 0.45; }
 .color.on { opacity: 1; }
 .swatch { display: inline-block; min-width: 22px; padding: 1px 5px; border-radius: 3px; color: #fff; font-size: 11px; font-weight: 600; text-align: center; }
+.sep { width: 1px; align-self: stretch; background: var(--border); margin: 0 4px; }
+.check { display: flex; align-items: center; gap: 4px; font-size: 12px; color: var(--text-secondary); cursor: pointer; }
+.levels { max-width: 240px; }
 .swatch.grey { background: rgb(64, 64, 64); border: 1px solid var(--border); }
 .warn { font-size: 11px; color: #e0b050; }
 .buttons { display: flex; gap: 6px; }

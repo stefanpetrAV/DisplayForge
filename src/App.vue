@@ -265,6 +265,7 @@ const syncClass = computed(() => ({
             :is-plugin="isPlugin"
             :busy="patternBusy"
             @color="store.setTestPatternColor"
+            @settings="store.updateTestPattern"
             @generate="onGeneratePattern"
           />
           <p v-if="patternStatus" class="status" :class="{ error: patternError }">{{ patternStatus }}</p>

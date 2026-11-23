@@ -1,4 +1,4 @@
-import type { PatternColor, RowSpan, TileSpec } from "./types";
+import type { LevelsTest, PatternColor, RowSpan, TestPatternSettings, TileSpec } from "./types";
 import { MAX_TEXTURE_SIDE } from "./mask";
 import { resourceName } from "./obj";
 
@@ -36,6 +36,54 @@ export const PATTERN_ABSENT: Rgb = [0, 0, 0];
 const ALL_COLORS = PATTERN_COLORS.map((c) => c.name);
 
 /**
+ * Colour bars under the screen name: 75 % bars (white, Y, C, G, M, R, B) on
+ * the top two thirds, the same bars at 100 % on the bottom third.
+ */
+export const COLOR_BARS: readonly { name: string; rgb75: Rgb; rgb100: Rgb }[] = [
+  { name: "W", rgb75: [191, 191, 191], rgb100: [255, 255, 255] },
+  { name: "Y", rgb75: [191, 191, 0], rgb100: [255, 255, 0] },
+  { name: "C", rgb75: [0, 191, 191], rgb100: [0, 255, 255] },
+  { name: "G", rgb75: [0, 191, 0], rgb100: [0, 255, 0] },
+  { name: "M", rgb75: [191, 0, 191], rgb100: [255, 0, 255] },
+  { name: "R", rgb75: [191, 0, 0], rgb100: [255, 0, 0] },
+  { name: "B", rgb75: [0, 0, 191], rgb100: [0, 0, 255] },
+];
+
+export interface LevelsSpec {
+  title: string;
+  /** Video black and white of the range. */
+  black: number;
+  white: number;
+  /** Grey steps from black to white (inclusive). */
+  steps: number[];
+  /** Patches on a `black` background: below-black ones must vanish, above-black ones must show. */
+  blackPatches: number[];
+  /** Patches on a `white` background: below-white ones must show, above-white ones must vanish. */
+  whitePatches: number[];
+}
+
+/**
+ * Legal / full range test. On a legal (16–235) chain the patches below 16 and
+ * above 235 blend into their background while those inside the range stay
+ * visible; on a full (0–255) chain every near-black / near-white patch shows.
+ */
+export function levelsSpec(mode: LevelsTest): LevelsSpec | null {
+  if (mode === "off") return null;
+  const legal = mode === "legal";
+  const black = legal ? 16 : 0;
+  const white = legal ? 235 : 255;
+  const steps = Array.from({ length: 11 }, (_, i) => Math.round(black + ((white - black) * i) / 10));
+  return {
+    title: legal ? "LEGAL 16–235" : "FULL 0–255",
+    black,
+    white,
+    steps,
+    blackPatches: legal ? [4, 8, 12, 20, 24, 28] : [2, 4, 8, 12, 16, 24],
+    whitePatches: legal ? [223, 227, 231, 239, 243, 247] : [231, 239, 243, 247, 251, 253],
+  };
+}
+
+/**
  * Colour of tile (row, col), both 0-based, rows top-to-bottom: null for grey
  * (even row + col), otherwise the column's colour colors[col mod n].
  */
@@ -65,6 +113,8 @@ export interface TestPatternLayout {
   rows: RowSpan[];
   tile: TileSpec;
   colors: PatternColor[];
+  colorBars: boolean;
+  levels: LevelsTest;
   /** Full LED screen resolution. */
   width: number;
   height: number;
@@ -88,8 +138,11 @@ export function testPatternLayout(
   totalColumns: number,
   rows: RowSpan[],
   tile: TileSpec,
-  colors: PatternColor[] = [...ALL_COLORS],
+  settings: Partial<TestPatternSettings> = {},
 ): TestPatternLayout {
+  const colors = settings.colors?.length ? [...settings.colors] : [...ALL_COLORS];
+  const colorBars = settings.colorBars === true;
+  const levels: LevelsTest = settings.levels ?? "off";
   const width = Math.max(1, totalColumns * tile.tileResolutionX);
   const height = Math.max(1, rows.length * tile.tileResolutionY);
   const xs = splitAxis(width, tile.tileResolutionX);
@@ -102,7 +155,7 @@ export function testPatternLayout(
       parts.push({ label: single ? "" : String.fromCharCode(65 + k), x, y, width: w, height: h });
     }),
   );
-  return { screenName, totalColumns, rows, tile, colors, width, height, parts };
+  return { screenName, totalColumns, rows, tile, colors, colorBars, levels, width, height, parts };
 }
 
 export function testPatternFileName(screenName: string, part: PatternPart): string {

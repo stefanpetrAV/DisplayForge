@@ -80,7 +80,11 @@ export const PATTERN_COLOR_ORDER: readonly PatternColor[] = ["R", "G", "B", "Y",
 export function sanitizeTestPattern(t: Partial<TestPatternSettings> | undefined): TestPatternSettings {
   const wanted = new Set(Array.isArray(t?.colors) ? t!.colors : []);
   const colors = PATTERN_COLOR_ORDER.filter((c) => wanted.has(c));
-  return { colors: colors.length ? colors : [...PATTERN_COLOR_ORDER] };
+  return {
+    colors: colors.length ? colors : [...PATTERN_COLOR_ORDER],
+    colorBars: t?.colorBars === true,
+    levels: t?.levels === "legal" || t?.levels === "full" ? t.levels : "off",
+  };
 }
 
 /** Variants keep their own spans; they are clipped to the screen when the mask is built. */

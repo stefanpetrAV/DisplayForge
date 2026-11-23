@@ -1,5 +1,15 @@
 import { encodeRgbaPng } from "./mask";
-import { isTileLit, PATTERN_ABSENT, tileColor, type PatternPart, type Rgb, type TestPatternLayout } from "./testPattern";
+import {
+  COLOR_BARS,
+  isTileLit,
+  levelsSpec,
+  PATTERN_ABSENT,
+  tileColor,
+  type LevelsSpec,
+  type PatternPart,
+  type Rgb,
+  type TestPatternLayout,
+} from "./testPattern";
 
 /**
  * Browser-side drawing of a test pattern.
@@ -60,12 +70,12 @@ export function drawTestPattern(
     }
   }
 
-  // Tile edges (1 px, inside the tile) and "R<row> C<col>" labels on every tile.
-  // The label is sized to fit the widest one ("R<rows> C<columns>") in ~80 %
+  // Tile edges (1 px, inside the tile) and "<row>,<col>" labels on every tile.
+  // The label is sized to fit the widest one ("<rows>,<columns>") in ~80 %
   // of the tile width, capped at 14 % of the tile height.
   const px = 1 / scale;
   ctx.font = `600 100px ${FONT}`;
-  const widest = ctx.measureText(`R${rows.length} C${totalColumns}`).width || 1;
+  const widest = ctx.measureText(`${rows.length},${totalColumns}`).width || 1;
   const labelSize = Math.max(4, Math.min((tw * 0.8 * 100) / widest, th * 0.14));
   const showLabels = labelSize * scale >= 5; // export (scale 1) always; preview when readable
   ctx.textBaseline = "top";
@@ -83,7 +93,7 @@ export function drawTestPattern(
         ctx.fillRect(x, y, Math.max(1, px), th);
       }
       if (showLabels) {
-        const label = `R${r + 1} C${c + 1}`;
+        const label = `${r + 1},${c + 1}`;
         const lx = x + Math.max(2, tw * 0.06);
         const ly = y + Math.max(2, th * 0.05);
         ctx.lineWidth = Math.max(1, labelSize * 0.18);
@@ -116,20 +126,48 @@ export function drawTestPattern(
   ctx.strokeStyle = "rgba(255,255,255,0.35)";
   ctx.stroke();
 
-  // Screen name in the centre.
+  // Screen name in the centre, optionally followed by the colour bars and the
+  // legal / full range test. The whole group is centred vertically (the name
+  // alone sits exactly in the middle) and shrinks to fit short screens.
   const name = layout.screenName.trim() || "Screen";
   ctx.font = `700 100px ${FONT}`;
   const measured = ctx.measureText(name).width || 1;
-  const nameSize = Math.max(8, Math.min((W * 0.6 * 100) / measured, H * 0.2));
+  let nameSize = Math.max(8, Math.min((W * 0.6 * 100) / measured, H * 0.2));
+  const levels = levelsSpec(layout.levels);
+  let blockW = Math.min(W * 0.5, H * 1.2);
+  let barsH = layout.colorBars ? blockW * 0.16 : 0;
+  let levelsH = levels ? blockW * 0.24 : 0;
+  let gap = nameSize * 0.2;
+  const total = () => nameSize + (barsH ? gap + barsH : 0) + (levelsH ? gap + levelsH : 0);
+  const fit = (H * 0.85) / total();
+  if (fit < 1) {
+    nameSize *= fit;
+    blockW *= fit;
+    barsH *= fit;
+    levelsH *= fit;
+    gap *= fit;
+  }
+  let y = H / 2 - total() / 2;
   ctx.font = `700 ${nameSize}px ${FONT}`;
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   ctx.lineJoin = "round";
   ctx.lineWidth = nameSize * 0.12;
   ctx.strokeStyle = "rgba(0,0,0,0.85)";
-  ctx.strokeText(name, W / 2, H / 2);
+  ctx.strokeText(name, W / 2, y + nameSize / 2);
   ctx.fillStyle = "#fff";
-  ctx.fillText(name, W / 2, H / 2);
+  ctx.fillText(name, W / 2, y + nameSize / 2);
+  y += nameSize;
+  const bx = Math.round(W / 2 - blockW / 2);
+  if (barsH) {
+    y += gap;
+    drawColorBars(ctx, bx, Math.round(y), Math.round(blockW), Math.round(barsH));
+    y += barsH;
+  }
+  if (levels && levelsH) {
+    y += gap;
+    drawLevels(ctx, levels, bx, Math.round(y), Math.round(blockW), Math.round(levelsH));
+  }
 
   // Screen data, bottom-left of every file (each part of a split pattern).
   const unit = Math.round(Math.max(16, Math.min(160, Math.min(W, H) * 0.035)));
@@ -137,6 +175,82 @@ export function drawTestPattern(
 
   drawBranding(ctx, W, H, unit, logos);
   ctx.restore();
+}
+
+/** Whole-pixel edges of `n` equal cells over [start, start + size]. */
+const cellEdges = (start: number, size: number, n: number) => Array.from({ length: n + 1 }, (_, i) => start + Math.round((i * size) / n));
+
+/** Black frame around a block, so it reads on any tile colour. */
+function frame(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number) {
+  const m = Math.max(2, Math.round(w * 0.008));
+  ctx.fillStyle = "#000";
+  ctx.fillRect(x - m, y - m, w + m * 2, h + m * 2);
+}
+
+/** 75 % colour bars (top two thirds) over 100 % bars (bottom third). Values are exact 8-bit. */
+function drawColorBars(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number) {
+  frame(ctx, x, y, w, h);
+  const xs = cellEdges(x, w, COLOR_BARS.length);
+  const split = y + Math.round((h * 2) / 3);
+  COLOR_BARS.forEach((bar, i) => {
+    ctx.fillStyle = css(bar.rgb75);
+    ctx.fillRect(xs[i], y, xs[i + 1] - xs[i], split - y);
+    ctx.fillStyle = css(bar.rgb100);
+    ctx.fillRect(xs[i], split, xs[i + 1] - xs[i], y + h - split);
+  });
+}
+
+/**
+ * Legal / full range test: a title strip, an 11-step grey scale from video
+ * black to video white, then near-black patches on black and near-white
+ * patches on white. Every patch is labelled with its 8-bit value.
+ */
+function drawLevels(ctx: CanvasRenderingContext2D, spec: LevelsSpec, x: number, y: number, w: number, h: number) {
+  frame(ctx, x, y, w, h);
+  const titleH = Math.round(h * 0.18);
+  const stepsH = Math.round(h * 0.4);
+  const patchY = y + titleH + stepsH;
+  const patchH = y + h - patchY;
+  const grey = (v: number) => `rgb(${v},${v},${v})`;
+  const labelFont = (size: number) => `600 ${Math.max(4, size)}px ${FONT}`;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+
+  ctx.fillStyle = "#000";
+  ctx.fillRect(x, y, w, titleH);
+  ctx.fillStyle = "#fff";
+  ctx.font = labelFont(Math.round(titleH * 0.62));
+  ctx.fillText(spec.title, x + w / 2, y + titleH / 2);
+
+  const sx = cellEdges(x, w, spec.steps.length);
+  ctx.font = labelFont(Math.round(Math.min(stepsH * 0.22, (w / spec.steps.length) * 0.3)));
+  spec.steps.forEach((v, i) => {
+    ctx.fillStyle = grey(v);
+    ctx.fillRect(sx[i], y + titleH, sx[i + 1] - sx[i], stepsH);
+    ctx.fillStyle = v > 128 ? "#000" : "#fff";
+    ctx.fillText(String(v), (sx[i] + sx[i + 1]) / 2, y + titleH + stepsH * 0.82);
+  });
+
+  const half = Math.round(w / 2);
+  const groups: [number, number[], number][] = [
+    [x, spec.blackPatches, spec.black],
+    [x + half, spec.whitePatches, spec.white],
+  ];
+  for (const [gx, patches, bg] of groups) {
+    const gw = gx === x ? half : w - half;
+    ctx.fillStyle = grey(bg);
+    ctx.fillRect(gx, patchY, gw, patchH);
+    const px = cellEdges(gx, gw, patches.length);
+    const size = Math.round(Math.min(patchH * 0.55, (gw / patches.length) * 0.7));
+    ctx.font = labelFont(Math.round(Math.min(patchH * 0.18, size * 0.45)));
+    patches.forEach((v, i) => {
+      const cx = (px[i] + px[i + 1]) / 2;
+      ctx.fillStyle = grey(v);
+      ctx.fillRect(Math.round(cx - size / 2), Math.round(patchY + patchH * 0.12), size, size);
+      ctx.fillStyle = "rgb(128,128,128)"; // mid grey: readable on both backgrounds, never part of the test
+      ctx.fillText(String(v), cx, patchY + patchH * 0.86);
+    });
+  }
 }
 
 /** Resolution box at the bottom-left of a part: screen size, tile grid, tile size and (when split) the part. */

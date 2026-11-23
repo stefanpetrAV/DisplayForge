@@ -380,7 +380,7 @@ export function createStore(mode: AppMode) {
 
   function activeTestPatternLayout(): TestPatternLayout {
     const s = active.value;
-    return testPatternLayout(s.name, totalColumns(s), s.rows, s.tile, s.testPattern.colors);
+    return testPatternLayout(s.name, totalColumns(s), s.rows, s.tile, s.testPattern);
   }
 
   function updateTestPattern(patch: Partial<TestPatternSettings>) {
