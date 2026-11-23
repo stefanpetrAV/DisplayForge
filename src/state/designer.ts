@@ -72,6 +72,8 @@ export interface LoadStateResult {
   ok: boolean;
   projectFolder?: string;
   data?: unknown;
+  /** The state was read from the 0.8.x location and should be saved again. */
+  migrate?: boolean;
   error?: string;
 }
 

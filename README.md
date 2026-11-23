@@ -70,9 +70,16 @@ placement and the record of the LED screen created in Designer.
 
 Screens are saved automatically:
 
-- **Plugin** – in the Designer project, file `displayforge/screens.json`
-  inside the project folder (plus a local browser copy). Reopening the plugin
-  in the same project restores all screens.
+- **Plugin** – in the Designer project (plus a local browser copy), file
+  `screens.json` inside the plugin's own folder when the plugin is installed
+  in the project (`<project>/plugins/<plugin folder>/screens.json`), so
+  DisplayForge adds no folder of its own to the project. When the plugin is
+  installed outside the project, the file is `displayforge/screens.json` in
+  the project folder. Screens saved by 0.8.x in
+  `displayforge/screens.json` are moved next to the plugin automatically.
+  Reopening the plugin in the same project restores all screens. When
+  updating the plugin, extract the new ZIP over the old folder (or keep
+  `screens.json`) instead of deleting the folder first.
 - **Standalone** – in the browser's local storage.
 
 ## Create LED Screen in Disguise

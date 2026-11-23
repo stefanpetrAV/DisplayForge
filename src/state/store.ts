@@ -105,7 +105,7 @@ export function createStore(mode: AppMode) {
       const res = await saveDesignerState(json);
       if (!res?.ok) throw new Error(res?.error || "Designer did not confirm the save.");
       syncStatus.value = "designer";
-      syncMessage.value = `Saved in the Designer project (${res.stateFile ?? "displayforge/screens.json"})`;
+      syncMessage.value = `Saved in the Designer project (${res.stateFile ?? "screens.json"})`;
     } catch (e) {
       syncStatus.value = "designer-error";
       syncMessage.value = `Could not save in the Designer project: ${e instanceof Error ? e.message : e}. A local copy is kept in this browser.`;
@@ -132,7 +132,7 @@ export function createStore(mode: AppMode) {
         ? `Loaded ${fromDesigner.screens.length} screen(s) from the Designer project`
         : "No saved screens in this Designer project yet";
       ready = true;
-      if (!fromDesigner && fromLocal) void saveNow();
+      if ((!fromDesigner && fromLocal) || (fromDesigner && res.migrate)) void saveNow();
     } catch (e) {
       // Not running inside Designer (or the API is unreachable): fall back to browser storage.
       const fromLocal = readLocal(LOCAL_KEY);

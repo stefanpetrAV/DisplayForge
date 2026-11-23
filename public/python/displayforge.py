@@ -8,6 +8,7 @@ __all__ = [
     "create_led_screen",
     "save_obj",
     "save_population_mask",
+    "save_test_pattern",
     "list_meshes",
     "read_mesh",
     "load_state",
@@ -24,8 +25,15 @@ import json
 # imports and injected globals never overwrite.
 import os as _os
 
-STATE_FOLDER = "displayforge"
+# The screens are saved next to the plugin's own files when the plugin is
+# installed inside the project (<project>/plugins/<folder>), so DisplayForge
+# adds no folder of its own to the project. LEGACY_STATE_FOLDER is the
+# fallback (plugin installed outside the project) and the 0.8.x
+# location, migrated on the first save.
+LEGACY_STATE_FOLDER = "displayforge"
 STATE_FILE = "screens.json"
+PLUGIN_NAME = "DisplayForge"
+PLUGIN_MANIFEST = "d3plugin.json"
 
 # Designer's own resource folders. DisplayForge writes its files straight into
 # these with Python instead of going through the browser download: Designer's
@@ -392,11 +400,60 @@ def _project_folder():
     return None
 
 
+def _plugin_folder(project):
+    """Folder of this plugin when it is installed in <project>/plugins, else None.
+
+    The module is registered from text, so it cannot use __file__: look for a
+    plugin folder whose d3plugin.json is named DisplayForge.
+    """
+    plugins = None
+    for entry in _os.listdir(project):
+        if entry.lower() == "plugins" and _os.path.isdir(_os.path.join(project, entry)):
+            plugins = _os.path.join(project, entry)
+            break
+    if plugins is None:
+        return None
+    for entry in sorted(_os.listdir(plugins)):
+        manifest = _os.path.join(plugins, entry, PLUGIN_MANIFEST)
+        if not _os.path.isfile(manifest):
+            continue
+        try:
+            with open(manifest, "r") as handle:
+                name = json.loads(handle.read()).get("name")
+        except Exception:
+            continue
+        if str(name).strip().lower() == PLUGIN_NAME.lower():
+            return _os.path.join(plugins, entry)
+    return None
+
+
+def _legacy_state_path(folder):
+    return _os.path.join(folder, LEGACY_STATE_FOLDER, STATE_FILE)
+
+
 def _state_path():
     folder = _project_folder()
     if folder is None:
         return None, None
-    return folder, _os.path.join(folder, STATE_FOLDER, STATE_FILE)
+    plugin = _plugin_folder(folder)
+    if plugin is not None:
+        return folder, _os.path.join(plugin, STATE_FILE)
+    return folder, _legacy_state_path(folder)
+
+
+def _remove_legacy_state(folder, path):
+    """After a save next to the plugin, drop the old <project>/displayforge copy."""
+    legacy = _legacy_state_path(folder)
+    if _os.path.normcase(_os.path.abspath(legacy)) == _os.path.normcase(_os.path.abspath(path)):
+        return
+    try:
+        if _os.path.isfile(legacy):
+            _os.remove(legacy)
+        directory = _os.path.dirname(legacy)
+        if _os.path.isdir(directory) and not _os.listdir(directory):
+            _os.rmdir(directory)
+    except Exception:
+        pass
 
 
 def project_info():
@@ -408,15 +465,20 @@ def load_state():
     folder, path = _state_path()
     if folder is None:
         return json.dumps({"ok": False, "error": "Could not locate the Designer project folder."})
+    migrate = False
     if not _os.path.isfile(path):
-        return json.dumps({"ok": True, "projectFolder": folder, "data": None})
+        legacy = _legacy_state_path(folder)
+        if not _os.path.isfile(legacy):
+            return json.dumps({"ok": True, "projectFolder": folder, "data": None})
+        path = legacy  # saved by 0.8.1 or earlier: the plugin saves it again next to itself
+        migrate = True
     with open(path, "r") as handle:
         text = handle.read()
     try:
         data = json.loads(text)
     except ValueError as error:
         return json.dumps({"ok": False, "projectFolder": folder, "error": "Invalid %s: %s" % (path, error)})
-    return json.dumps({"ok": True, "projectFolder": folder, "data": data})
+    return json.dumps({"ok": True, "projectFolder": folder, "data": data, "migrate": migrate})
 
 
 def save_state(text):
@@ -433,4 +495,5 @@ def save_state(text):
     if _os.path.exists(path):
         _os.remove(path)
     _os.rename(temp_path, path)
+    _remove_legacy_state(folder, path)
     return json.dumps({"ok": True, "projectFolder": folder, "stateFile": path})
