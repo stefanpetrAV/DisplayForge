@@ -14,6 +14,7 @@ import PlanView from "./components/PlanView.vue";
 import PopulationMasks from "./components/PopulationMasks.vue";
 import ObjImport from "./components/ObjImport.vue";
 import TestPatterns from "./components/TestPatterns.vue";
+import CollapsiblePanel from "./components/CollapsiblePanel.vue";
 
 // three.js is only loaded when a 3D view is shown (keeps the plugin light).
 const MeshViewer3D = defineAsyncComponent(() => import("./components/MeshViewer3D.vue"));
@@ -193,8 +194,7 @@ const syncClass = computed(() => ({
 
     <div class="layout" :style="isPlugin ? undefined : { gridTemplateColumns: `${sidebarWidth}px 6px 1fr` }">
       <aside class="sidebar">
-        <section class="panel">
-          <h2>Screens</h2>
+        <CollapsiblePanel id="screens" title="Screens">
           <ScreenManager
             :screens="screenItems"
             @select="store.selectScreen"
@@ -205,32 +205,26 @@ const syncClass = computed(() => ({
           />
           <p v-if="isPlugin || store.syncMessage.value" class="sync" :class="syncClass">{{ store.syncMessage.value || "Loading screens…" }}</p>
           <p v-if="store.errorText.value" class="error">{{ store.errorText.value }}</p>
-        </section>
+        </CollapsiblePanel>
 
-        <section class="panel">
-          <details class="import-panel">
-            <summary>Import OBJ</summary>
-            <ObjImport :is-plugin="isPlugin" :default-tile="screen.tile" @imported="store.addImportedScreen" />
-          </details>
-        </section>
+        <CollapsiblePanel id="import" title="Import OBJ" :default-open="false">
+          <ObjImport :is-plugin="isPlugin" :default-tile="screen.tile" @imported="store.addImportedScreen" />
+        </CollapsiblePanel>
 
-        <section class="panel">
-          <h2>Tile — {{ screen.name }}</h2>
+        <CollapsiblePanel id="tile" :title="`Tile — ${screen.name}`">
           <div class="grid-2">
             <NumField label="Tile width (mm)" :model-value="screen.tile.tileWidthMm" :min="1" @update:model-value="store.updateTile({ tileWidthMm: $event })" />
             <NumField label="Tile height (mm)" :model-value="screen.tile.tileHeightMm" :min="1" @update:model-value="store.updateTile({ tileHeightMm: $event })" />
             <NumField label="Tile resolution X (px)" :model-value="screen.tile.tileResolutionX" :min="1" integer @update:model-value="store.updateTile({ tileResolutionX: $event })" />
             <NumField label="Tile resolution Y (px)" :model-value="screen.tile.tileResolutionY" :min="1" integer @update:model-value="store.updateTile({ tileResolutionY: $event })" />
           </div>
-        </section>
+        </CollapsiblePanel>
 
-        <section class="panel">
-          <h2>Runs (straight → curved → straight…)</h2>
+        <CollapsiblePanel id="runs" title="Runs (straight → curved → straight…)">
           <RunEditor :runs="screen.runs" @update:runs="store.updateRuns" />
-        </section>
+        </CollapsiblePanel>
 
-        <section class="panel">
-          <h2>Shape (rows / columns)</h2>
+        <CollapsiblePanel id="shape" title="Shape (rows / columns)">
           <ShapeEditor
             :rows="screen.rows"
             :shape="screen.shape"
@@ -239,10 +233,9 @@ const syncClass = computed(() => ({
             @row-count="store.updateRowCount"
             @row="store.updateRow"
           />
-        </section>
+        </CollapsiblePanel>
 
-        <section class="panel">
-          <h2>Population masks</h2>
+        <CollapsiblePanel id="masks" title="Population masks">
           <PopulationMasks
             :screen-name="screen.name"
             :rows="screen.rows"
@@ -263,26 +256,30 @@ const syncClass = computed(() => ({
             @generate="onGenerateMask"
           />
           <p v-if="maskStatus" class="status" :class="{ error: maskError }">{{ maskStatus }}</p>
-        </section>
+        </CollapsiblePanel>
 
-        <section class="panel">
-          <h2>Test pattern</h2>
-          <TestPatterns :layout="patternLayout" :logos="store.patternLogos()" :is-plugin="isPlugin" :busy="patternBusy" @generate="onGeneratePattern" />
+        <CollapsiblePanel id="testpattern" title="Test pattern">
+          <TestPatterns
+            :layout="patternLayout"
+            :logos="store.patternLogos()"
+            :is-plugin="isPlugin"
+            :busy="patternBusy"
+            @color="store.setTestPatternColor"
+            @generate="onGeneratePattern"
+          />
           <p v-if="patternStatus" class="status" :class="{ error: patternError }">{{ patternStatus }}</p>
-        </section>
+        </CollapsiblePanel>
 
-        <section class="panel">
-          <h2>Origin and placement</h2>
+        <CollapsiblePanel id="placement" title="Origin and placement">
           <TransformEditor
             :placement="screen.placement"
             :auto-orientation-deg="wall?.autoOrientationDeg ?? null"
             @update="store.updatePlacement"
             @reset="store.updatePlacement(sanitizePlacement(undefined))"
           />
-        </section>
+        </CollapsiblePanel>
 
-        <section v-if="isPlugin" class="panel">
-          <h2>Plan view (top-down)</h2>
+        <CollapsiblePanel v-if="isPlugin" id="plan" title="Plan view (top-down)">
           <PlanView :walls="planWalls" />
           <div v-if="wall" class="stats">
             <span>{{ columns }} columns × {{ screen.rows.length }} rows ({{ wall.tileCount }} tiles)</span>
@@ -293,10 +290,10 @@ const syncClass = computed(() => ({
             <summary>3D preview</summary>
             <div v-if="show3dInPlugin" class="plugin-viewer"><MeshViewer3D :entries="viewerEntries" /></div>
           </details>
-        </section>
+        </CollapsiblePanel>
 
-        <section class="panel actions">
-          <h2>Export</h2>
+        <CollapsiblePanel id="export" title="Export">
+          <div class="actions">
           <label class="field">
             <span>Screen name</span>
             <input type="text" :value="screen.name" @change="store.renameScreen(screen.id, ($event.target as HTMLInputElement).value)" />
@@ -313,7 +310,8 @@ const syncClass = computed(() => ({
             </button>
             <p v-if="createStatus" class="status" :class="{ error: createError }">{{ createStatus }}</p>
           </template>
-        </section>
+          </div>
+        </CollapsiblePanel>
       </aside>
 
       <template v-if="!isPlugin">
@@ -353,8 +351,6 @@ header { display: flex; justify-content: space-between; align-items: center; gap
 .viewer-panel { display: flex; flex-direction: column; flex: 1; min-height: 360px; }
 .viewer-box { flex: 1; min-height: 300px; }
 .plugin-viewer { height: 320px; margin-top: 8px; }
-.import-panel summary { cursor: pointer; color: var(--accent); font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; }
-.import-panel[open] summary { margin-bottom: 8px; }
 .viewer-toggle summary { cursor: pointer; color: var(--accent); font-size: 12px; margin-top: 8px; }
 .actions { display: flex; flex-direction: column; gap: 8px; }
 .sync { font-size: 11px; color: var(--text-muted); margin-top: 8px; }

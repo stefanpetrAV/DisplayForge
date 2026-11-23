@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from "vue";
 import type { TestPatternLayout } from "../core/testPattern";
+import type { PatternColor } from "../core/types";
 import { testPatternFileName, PATTERN_COLORS } from "../core/testPattern";
 import { MAX_TEXTURE_SIDE } from "../core/mask";
 import { drawTestPattern, type PatternLogos } from "../core/testPatternRender";
@@ -11,7 +12,7 @@ const props = defineProps<{
   isPlugin: boolean;
   busy: boolean;
 }>();
-const emit = defineEmits<{ generate: [] }>();
+const emit = defineEmits<{ generate: []; color: [name: PatternColor, on: boolean] }>();
 
 const canvas = ref<HTMLCanvasElement | null>(null);
 const resolvedLogos = ref<PatternLogos>({});
@@ -50,10 +51,21 @@ const disguiseMissing = computed(() => props.isPlugin && !resolvedLogos.value.di
 <template>
   <div class="patterns">
     <p class="hint">
-      One checkerboard cell per tile: neutral grey alternating with
-      <span v-for="c in PATTERN_COLORS" :key="c.name" class="swatch" :style="{ background: `rgb(${c.rgb.join(',')})` }">{{ c.name }}</span>,
-      screen name in the centre, absent tiles black.
+      One checkerboard cell per tile. Every column has one colour, alternating with neutral grey; columns cycle through the
+      selected colours. Each tile shows its row and column, the screen data sits bottom-left, absent tiles are black.
     </p>
+    <div class="colors" role="group" aria-label="Pattern colours">
+      <label v-for="c in PATTERN_COLORS" :key="c.name" class="color" :class="{ on: layout.colors.includes(c.name) }">
+        <input
+          type="checkbox"
+          :checked="layout.colors.includes(c.name)"
+          :disabled="layout.colors.length === 1 && layout.colors.includes(c.name)"
+          @change="emit('color', c.name, ($event.target as HTMLInputElement).checked)"
+        />
+        <span class="swatch" :style="{ background: `rgb(${c.rgb.join(',')})` }">{{ c.name }}</span>
+      </label>
+      <span class="swatch grey">Grey</span>
+    </div>
     <div class="preview-wrap">
       <canvas ref="canvas" class="preview" />
       <div v-for="(x, i) in seams" :key="i" class="seam" :style="{ left: `${x}%` }" />
@@ -69,7 +81,7 @@ const disguiseMissing = computed(() => props.isPlugin && !resolvedLogos.value.di
     </p>
     <div class="buttons">
       <button type="button" class="primary" :disabled="busy" @click="emit('generate')">
-        {{ isPlugin ? "Save test pattern to objects/DxTexture" : "Download test pattern" }}
+        {{ isPlugin ? "Save test pattern to VideoFile/TestPattern" : "Download test pattern" }}
       </button>
     </div>
   </div>
@@ -81,7 +93,11 @@ const disguiseMissing = computed(() => props.isPlugin && !resolvedLogos.value.di
 .preview { max-width: 100%; border: 1px solid var(--border); border-radius: 4px; }
 .seam { position: absolute; top: 0; bottom: 0; width: 0; border-left: 2px dashed #e0b050; }
 .files { margin: 0; padding-left: 18px; font-size: 12px; color: var(--text-secondary); }
-.swatch { display: inline-block; min-width: 16px; padding: 0 3px; margin: 0 1px; border-radius: 3px; color: #fff; font-size: 11px; text-align: center; }
+.colors { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.color { display: flex; align-items: center; gap: 4px; font-size: 12px; cursor: pointer; opacity: 0.45; }
+.color.on { opacity: 1; }
+.swatch { display: inline-block; min-width: 22px; padding: 1px 5px; border-radius: 3px; color: #fff; font-size: 11px; font-weight: 600; text-align: center; }
+.swatch.grey { background: rgb(64, 64, 64); border: 1px solid var(--border); }
 .warn { font-size: 11px; color: #e0b050; }
 .buttons { display: flex; gap: 6px; }
 code { font-size: 11px; color: var(--text-secondary); }

@@ -33,6 +33,8 @@ STATE_FILE = "screens.json"
 # a folder that must not exist in the project.
 MESH_FOLDER = "Mesh"
 TEXTURE_FOLDER = "DxTexture"
+VIDEO_FOLDER = "VideoFile"
+TEST_PATTERN_FOLDER = "TestPattern"
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 
 
@@ -322,14 +324,23 @@ def save_population_mask(screen_name, file_name, png_base64, assign):
 
 
 def save_test_pattern(file_name, png_base64):
-    """Write objects/DxTexture/<file_name>.png (a DisplayForge test pattern)."""
+    """Write objects/VideoFile/TestPattern/<file_name>.png (a DisplayForge test
+    pattern), creating the TestPattern folder when it does not exist."""
     file_name = _valid_name(file_name)
     data = base64.b64decode(png_base64)
     if data[:8] != PNG_SIGNATURE:
         raise ValueError("The test pattern is not a PNG image.")
-    folder, prefix = _objects_subfolder(TEXTURE_FOLDER, True)
-    if folder is None:
+    video, video_prefix = _objects_subfolder(VIDEO_FOLDER, True)
+    if video is None:
         return json.dumps({"ok": False, "error": "Could not locate the Designer project folder."})
+    folder = prefix = None
+    for entry in _os.listdir(video):
+        if entry.lower() == TEST_PATTERN_FOLDER.lower() and _os.path.isdir(_os.path.join(video, entry)):
+            folder, prefix = _os.path.join(video, entry), "%s/%s" % (video_prefix, entry)
+            break
+    if folder is None:
+        folder, prefix = _os.path.join(video, TEST_PATTERN_FOLDER), "%s/%s" % (video_prefix, TEST_PATTERN_FOLDER)
+        _os.makedirs(folder)
     png_name = _existing_spelling(folder, "%s.png" % file_name)
     _write_file(_os.path.join(folder, png_name), data)
     return json.dumps({"ok": True, "path": "%s/%s" % (prefix, png_name)})

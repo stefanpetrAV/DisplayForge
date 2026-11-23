@@ -1,15 +1,12 @@
 # Disguise logo for test patterns (plugin only)
 
 The Designer plugin signs its test patterns with the official Disguise logo
-next to the DisplayForge mark. The logo is not bundled: place the **white**
-landscape logo from the official Disguise logo pack here as
+next to the DisplayForge mark. `disguise-logo-white.svg` is the landscape
+logo from the official Disguise 2023 logo pack (brand.disguise.one,
+`Vectors/Disguise_Logo_Landscape.svg`) in its approved white colour; the
+artwork and its built-in clear space are unchanged. If the file is missing,
+test patterns are signed with DisplayForge only.
 
-    disguise-logo-white.svg   (or disguise-logo-white.png)
-
-The SVG must declare width/height (or a viewBox the browser can size).
-If the file is missing, test patterns are signed with DisplayForge only.
-
-Brand rules applied (brand.disguise.one): logo used unmodified, white on a
-black plate, never recoloured, outlined, shadowed, rotated or distorted,
-minimum height 15 px, clear space of half the logo height around it, corner
-placement.
+Brand rules applied (brand.disguise.one): official artwork, white on a dark
+plate, not outlined, shadowed, rotated or distorted, visible logo at least
+15 px high, official clear space kept, corner placement.

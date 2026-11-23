@@ -1,4 +1,4 @@
-import type { RowSpan, TileSpec } from "./types";
+import type { PatternColor, RowSpan, TileSpec } from "./types";
 import { MAX_TEXTURE_SIDE } from "./mask";
 import { resourceName } from "./obj";
 
@@ -6,9 +6,11 @@ import { resourceName } from "./obj";
  * Test patterns for LED screens.
  *
  * One pattern covers the whole LED screen at its native resolution (tile
- * resolution × grid). Every tile is one checkerboard cell: neutral grey cells
- * alternate with R G B Y C M cells, so tile edges, seams and colour channels
- * are visible at a glance. Tiles that are not populated are black.
+ * resolution × grid). Every tile is one checkerboard cell. Each column has a
+ * single colour, chosen among the selected R G B Y C M colours in turn
+ * (column c → colors[c mod n]), alternating with neutral grey down the
+ * column; neighbouring columns are offset by one tile, giving a checkerboard.
+ * Tiles that are not populated are black.
  *
  * The image is split into equal parts only when a side exceeds
  * MAX_TEXTURE_SIDE (16384 px): a 20000 × 2800 screen gives two 10000 × 2800
@@ -19,7 +21,7 @@ import { resourceName } from "./obj";
 export type Rgb = readonly [number, number, number];
 
 /** 75 % primaries / secondaries (comfortable on LED, still unambiguous). */
-export const PATTERN_COLORS: readonly { name: string; rgb: Rgb }[] = [
+export const PATTERN_COLORS: readonly { name: PatternColor; rgb: Rgb }[] = [
   { name: "R", rgb: [191, 0, 0] },
   { name: "G", rgb: [0, 191, 0] },
   { name: "B", rgb: [0, 0, 191] },
@@ -31,21 +33,21 @@ export const PATTERN_COLORS: readonly { name: string; rgb: Rgb }[] = [
 export const PATTERN_GREY: Rgb = [64, 64, 64];
 export const PATTERN_ABSENT: Rgb = [0, 0, 0];
 
+const ALL_COLORS = PATTERN_COLORS.map((c) => c.name);
+
 /**
- * Colour of tile (row, col), both 0-based, rows top-to-bottom.
- * Cells with even row + col are grey. The others cycle through RGBYCM with
- * index (col + 4·row) mod 6, so no two coloured tiles that touch (they only
- * touch at corners) share a colour, and neither do tiles two apart in the
- * same row or column.
+ * Colour of tile (row, col), both 0-based, rows top-to-bottom: null for grey
+ * (even row + col), otherwise the column's colour colors[col mod n].
  */
-export function tileColorIndex(row: number, col: number): number {
-  if ((row + col) % 2 === 0) return -1;
-  return (((col + 4 * row) % 6) + 6) % 6;
+export function tileColorName(row: number, col: number, colors: readonly PatternColor[] = ALL_COLORS): PatternColor | null {
+  if ((row + col) % 2 === 0) return null;
+  const list = colors.length ? colors : ALL_COLORS;
+  return list[col % list.length];
 }
 
-export function tileColor(row: number, col: number): Rgb {
-  const i = tileColorIndex(row, col);
-  return i < 0 ? PATTERN_GREY : PATTERN_COLORS[i].rgb;
+export function tileColor(row: number, col: number, colors?: readonly PatternColor[]): Rgb {
+  const name = tileColorName(row, col, colors);
+  return name ? PATTERN_COLORS.find((c) => c.name === name)!.rgb : PATTERN_GREY;
 }
 
 export interface PatternPart {
@@ -62,6 +64,7 @@ export interface TestPatternLayout {
   totalColumns: number;
   rows: RowSpan[];
   tile: TileSpec;
+  colors: PatternColor[];
   /** Full LED screen resolution. */
   width: number;
   height: number;
@@ -80,7 +83,13 @@ export function splitAxis(size: number, cell: number, max = MAX_TEXTURE_SIDE): [
   return cuts.slice(1).map((c, i) => [cuts[i], c - cuts[i]]);
 }
 
-export function testPatternLayout(screenName: string, totalColumns: number, rows: RowSpan[], tile: TileSpec): TestPatternLayout {
+export function testPatternLayout(
+  screenName: string,
+  totalColumns: number,
+  rows: RowSpan[],
+  tile: TileSpec,
+  colors: PatternColor[] = [...ALL_COLORS],
+): TestPatternLayout {
   const width = Math.max(1, totalColumns * tile.tileResolutionX);
   const height = Math.max(1, rows.length * tile.tileResolutionY);
   const xs = splitAxis(width, tile.tileResolutionX);
@@ -93,7 +102,7 @@ export function testPatternLayout(screenName: string, totalColumns: number, rows
       parts.push({ label: single ? "" : String.fromCharCode(65 + k), x, y, width: w, height: h });
     }),
   );
-  return { screenName, totalColumns, rows, tile, width, height, parts };
+  return { screenName, totalColumns, rows, tile, colors, width, height, parts };
 }
 
 export function testPatternFileName(screenName: string, part: PatternPart): string {

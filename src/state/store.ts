@@ -1,5 +1,5 @@
 import { computed, reactive, ref, toRaw, watch, type ComputedRef } from "vue";
-import type { MaskSettings, Placement, ProjectState, Run, RowSpan, ScreenConfig, ShapeSettings, TileSpec } from "../core/types";
+import type { MaskSettings, Placement, ProjectState, Run, RowSpan, ScreenConfig, ShapeSettings, PatternColor, TestPatternSettings, TileSpec } from "../core/types";
 import {
   cloneScreen,
   createPopulation,
@@ -11,7 +11,7 @@ import {
   setRowCount,
   totalColumns,
 } from "../core/screen";
-import { normalizeRows, sanitizeMask, sanitizePlacement, sanitizeRuns, sanitizeTile } from "../core/sanitize";
+import { normalizeRows, sanitizeMask, sanitizePlacement, sanitizeRuns, sanitizeTestPattern, sanitizeTile } from "../core/sanitize";
 import { buildWall, mergeMeshes, type WallResult } from "../core/wall";
 import { downloadBytes, downloadText, meshToObj, resourceName } from "../core/obj";
 import type { ObjImportResult } from "../core/objImport";
@@ -380,7 +380,19 @@ export function createStore(mode: AppMode) {
 
   function activeTestPatternLayout(): TestPatternLayout {
     const s = active.value;
-    return testPatternLayout(s.name, totalColumns(s), s.rows, s.tile);
+    return testPatternLayout(s.name, totalColumns(s), s.rows, s.tile, s.testPattern.colors);
+  }
+
+  function updateTestPattern(patch: Partial<TestPatternSettings>) {
+    const s = active.value;
+    s.testPattern = sanitizeTestPattern({ ...s.testPattern, ...patch });
+  }
+
+  /** Select / deselect one colour; the last selected colour cannot be removed. */
+  function setTestPatternColor(name: PatternColor, on: boolean) {
+    const current = active.value.testPattern.colors;
+    const next = on ? [...current, name] : current.filter((c) => c !== name);
+    if (next.length) updateTestPattern({ colors: next });
   }
 
   let logoCache: Promise<PatternLogos> | undefined;
@@ -399,7 +411,7 @@ export function createStore(mode: AppMode) {
     return logoCache;
   }
 
-  /** Render every part of the active screen's test pattern; download it or save it in objects/DxTexture. */
+  /** Render every part of the active screen's test pattern; download it or save it in objects/VideoFile/TestPattern. */
   async function exportTestPattern(onProgress: (message: string) => void): Promise<{ layout: TestPatternLayout; files: string[] }> {
     const layout = activeTestPatternLayout();
     const logos = await patternLogos();
@@ -454,6 +466,8 @@ export function createStore(mode: AppMode) {
     exportAllObj,
     exportMask,
     activeTestPatternLayout,
+    updateTestPattern,
+    setTestPatternColor,
     patternLogos,
     exportTestPattern,
   };

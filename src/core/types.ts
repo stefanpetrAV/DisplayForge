@@ -85,6 +85,15 @@ export interface ScreenConfig {
   /** Alternative populations of the same mesh, each exported as its own population mask. */
   populations: PopulationVariant[];
   mask: MaskSettings;
+  testPattern: TestPatternSettings;
+}
+
+/** Colours of the test-pattern checkerboard (75 % R, G, B, Y, C, M). */
+export type PatternColor = "R" | "G" | "B" | "Y" | "C" | "M";
+
+export interface TestPatternSettings {
+  /** Selected colours, in R G B Y C M order; column c uses colors[c mod n], alternating with grey. */
+  colors: PatternColor[];
 }
 
 /**

@@ -1,24 +1,32 @@
 import { describe, expect, it } from "vitest";
-import { splitAxis, testPatternFileName, testPatternLayout, tileColorIndex } from "./testPattern";
+import { splitAxis, testPatternFileName, testPatternLayout, tileColorName } from "./testPattern";
+import { sanitizeTestPattern } from "./sanitize";
 
 const tile = (x: number, y: number) => ({ tileWidthMm: 500, tileHeightMm: 500, tileResolutionX: x, tileResolutionY: y });
 const full = (cols: number, rows: number) => Array.from({ length: rows }, () => ({ startColumn: 0, columnCount: cols }));
 
 describe("test pattern colours", () => {
-  it("alternates grey with RGBYCM and never repeats a colour on touching tiles", () => {
-    for (let r = 0; r < 12; r++) {
-      for (let c = 0; c < 12; c++) {
-        const i = tileColorIndex(r, c);
-        expect(i < 0).toBe((r + c) % 2 === 0);
-        if (i < 0) continue;
-        for (const [dr, dc] of [[1, 1], [1, -1], [0, 2], [2, 0]]) expect(tileColorIndex(r + dr, c + dc)).not.toBe(i);
+  it("gives every column one colour, alternating with grey", () => {
+    const colors = ["R", "G", "B", "Y", "C", "M"] as const;
+    for (let c = 0; c < 14; c++) {
+      const inColumn = new Set<string>();
+      for (let r = 0; r < 10; r++) {
+        const name = tileColorName(r, c, [...colors]);
+        expect(name === null).toBe((r + c) % 2 === 0);
+        if (name) inColumn.add(name);
       }
+      expect([...inColumn]).toEqual([colors[c % 6]]);
     }
   });
-  it("uses all six colours", () => {
-    const seen = new Set<number>();
-    for (let r = 0; r < 6; r++) for (let c = 0; c < 6; c++) seen.add(tileColorIndex(r, c));
-    expect([...seen].filter((i) => i >= 0).sort()).toEqual([0, 1, 2, 3, 4, 5]);
+  it("cycles through the selected colours only", () => {
+    const picked = [0, 1, 2, 3, 4, 5].map((c) => tileColorName(c % 2 === 0 ? 1 : 0, c, ["R", "C"]));
+    expect(picked).toEqual(["R", "C", "R", "C", "R", "C"]);
+    expect(tileColorName(0, 7, ["M"])).toBe("M");
+  });
+  it("keeps the selection in RGBYCM order and never empty", () => {
+    expect(sanitizeTestPattern({ colors: ["M", "R", "R", "X" as never] }).colors).toEqual(["R", "M"]);
+    expect(sanitizeTestPattern({ colors: [] }).colors).toEqual(["R", "G", "B", "Y", "C", "M"]);
+    expect(sanitizeTestPattern(undefined).colors).toHaveLength(6);
   });
 });
 

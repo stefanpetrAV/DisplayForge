@@ -19,6 +19,10 @@ export interface PatternLogos {
   disguiseSize?: { width: number; height: number };
 }
 
+/** Corner overlays (screen data, signature) are translucent so the pattern shows through. */
+const OVERLAY_PLATE = "rgba(0,0,0,0.45)";
+const OVERLAY_ALPHA = 0.85;
+const OVERLAY_TEXT = `rgba(255,255,255,${OVERLAY_ALPHA})`;
 const FONT = '"Segoe UI", "Inter", Arial, sans-serif';
 const css = (c: Rgb, a = 1) => `rgba(${c[0]},${c[1]},${c[2]},${a})`;
 
@@ -51,18 +55,23 @@ export function drawTestPattern(
   for (let r = r0; r <= r1; r++) {
     for (let c = c0; c <= c1; c++) {
       if (!isTileLit(rows, r, c)) continue;
-      ctx.fillStyle = css(tileColor(r, c));
+      ctx.fillStyle = css(tileColor(r, c, layout.colors));
       ctx.fillRect(c * tw, r * th, tw, th);
     }
   }
 
-  // Tile edges (1 px, inside the tile) and "row,col" labels.
+  // Tile edges (1 px, inside the tile) and "R<row> C<col>" labels on every tile.
+  // The label is sized to fit the widest one ("R<rows> C<columns>") in ~80 %
+  // of the tile width, capped at 14 % of the tile height.
   const px = 1 / scale;
-  const labelSize = Math.round(Math.min(tw, th) * 0.13);
-  const showLabels = labelSize * scale >= 7;
+  ctx.font = `600 100px ${FONT}`;
+  const widest = ctx.measureText(`R${rows.length} C${totalColumns}`).width || 1;
+  const labelSize = Math.max(4, Math.min((tw * 0.8 * 100) / widest, th * 0.14));
+  const showLabels = labelSize * scale >= 5; // export (scale 1) always; preview when readable
   ctx.textBaseline = "top";
   ctx.textAlign = "left";
   ctx.font = `600 ${labelSize}px ${FONT}`;
+  ctx.lineJoin = "round";
   for (let r = r0; r <= r1; r++) {
     for (let c = c0; c <= c1; c++) {
       if (!isTileLit(rows, r, c)) continue;
@@ -74,8 +83,14 @@ export function drawTestPattern(
         ctx.fillRect(x, y, Math.max(1, px), th);
       }
       if (showLabels) {
+        const label = `R${r + 1} C${c + 1}`;
+        const lx = x + Math.max(2, tw * 0.06);
+        const ly = y + Math.max(2, th * 0.05);
+        ctx.lineWidth = Math.max(1, labelSize * 0.18);
+        ctx.strokeStyle = "rgba(0,0,0,0.7)";
+        ctx.strokeText(label, lx, ly);
         ctx.fillStyle = "#fff";
-        ctx.fillText(`${r + 1},${c + 1}`, x + labelSize * 0.35, y + labelSize * 0.3);
+        ctx.fillText(label, lx, ly);
       }
     }
   }
@@ -116,24 +131,52 @@ export function drawTestPattern(
   ctx.fillStyle = "#fff";
   ctx.fillText(name, W / 2, H / 2);
 
-  // Resolution, bottom-left.
+  // Screen data, bottom-left of every file (each part of a split pattern).
   const unit = Math.round(Math.max(16, Math.min(160, Math.min(W, H) * 0.035)));
-  ctx.font = `600 ${Math.round(unit * 0.6)}px ${FONT}`;
-  ctx.textAlign = "left";
-  ctx.textBaseline = "alphabetic";
-  ctx.lineWidth = unit * 0.12;
-  ctx.strokeText(`${W} × ${H}`, unit * 0.5, H - unit * 0.5);
-  ctx.fillText(`${W} × ${H}`, unit * 0.5, H - unit * 0.5);
+  for (const part of layout.parts) drawInfo(ctx, layout, part, unit);
 
   drawBranding(ctx, W, H, unit, logos);
   ctx.restore();
 }
 
+/** Resolution box at the bottom-left of a part: screen size, tile grid, tile size and (when split) the part. */
+function drawInfo(ctx: CanvasRenderingContext2D, layout: TestPatternLayout, part: PatternPart, unit: number) {
+  const { width: W, height: H, tile, totalColumns, rows } = layout;
+  const lines = [
+    `${W} × ${H} px`,
+    `${totalColumns} × ${rows.length} tiles · tile ${tile.tileResolutionX} × ${tile.tileResolutionY} px`,
+  ];
+  if (part.label) {
+    lines.push(`Part ${part.label}/${layout.parts.length} · ${part.width} × ${part.height} px · x ${part.x}–${part.x + part.width}, y ${part.y}–${part.y + part.height}`);
+  }
+  const big = Math.round(unit * 0.75);
+  const small = Math.round(unit * 0.45);
+  const pad = Math.round(unit * 0.4);
+  ctx.textAlign = "left";
+  ctx.textBaseline = "top";
+  ctx.font = `700 ${big}px ${FONT}`;
+  let boxW = ctx.measureText(lines[0]).width;
+  ctx.font = `500 ${small}px ${FONT}`;
+  for (const l of lines.slice(1)) boxW = Math.max(boxW, ctx.measureText(l).width);
+  const boxH = big * 1.15 + (lines.length - 1) * small * 1.3;
+  const x = part.x + unit * 0.5;
+  const y = part.y + part.height - unit * 0.5 - boxH - pad * 2;
+  if (boxW + pad * 2 > part.width - unit || y < part.y) return;
+  ctx.fillStyle = OVERLAY_PLATE;
+  ctx.fillRect(x, y, boxW + pad * 2, boxH + pad * 2);
+  ctx.fillStyle = OVERLAY_TEXT;
+  ctx.font = `700 ${big}px ${FONT}`;
+  ctx.fillText(lines[0], x + pad, y + pad);
+  ctx.font = `500 ${small}px ${FONT}`;
+  lines.slice(1).forEach((l, i) => ctx.fillText(l, x + pad, y + pad + big * 1.15 + i * small * 1.3));
+}
+
 /**
  * Bottom-right signature: [Disguise logo]  [DisplayForge icon] DisplayForge.
- * Both sit on one black plate. The Disguise logo is used unmodified, white on
- * black, at least 15 px high, with a clear space of half its height around
- * it (brand.disguise.one: black or white only, no outline/shadow/rotation).
+ * Both sit on one translucent black plate. The Disguise logo is the official landscape
+ * artwork, white on black, visible logo at least 15 px high, keeping the
+ * clear space built into the official SVG (brand.disguise.one: black or white
+ * only, no outline/shadow/rotation/distortion).
  */
 function drawBranding(ctx: CanvasRenderingContext2D, W: number, H: number, unit: number, logos: PatternLogos) {
   const pad = Math.round(unit * 0.5);
@@ -144,26 +187,33 @@ function drawBranding(ctx: CanvasRenderingContext2D, W: number, H: number, unit:
   const textW = ctx.measureText(text).width;
   const dfW = (logos.displayforge ? iconSize + pad * 0.5 : 0) + textW;
 
+  // The official landscape SVG (viewBox 292 × 94) already contains the
+  // brand clear space: the logo itself spans y 20…74 (54 units high), with
+  // 34 units free on the left. Size the whole box so the visible logo is
+  // ~0.8 unit high and never below the 15 px minimum, and add no extra
+  // padding on its left.
   let dgW = 0;
-  const dgH = Math.max(15, Math.round(unit * 0.8));
+  let dgH = 0;
   if (logos.disguise) {
     const s = logos.disguiseSize;
-    dgW = s && s.height > 0 ? (dgH * s.width) / s.height : dgH * 4;
+    const box = s && s.height > 0 ? s : { width: 292, height: 94 };
+    dgH = (Math.max(15, unit * 0.8) * box.height) / 54;
+    dgW = (dgH * box.width) / box.height;
   }
-  const gap = logos.disguise ? pad * 2 : 0; // ≥ clear space of both marks
-  const plateW = pad * 2 + dgW + gap + dfW;
-  const plateH = pad * 2 + Math.max(iconSize, dgH);
+  const plateW = (logos.disguise ? dgW : pad) + dfW + pad;
+  const plateH = Math.max(pad * 2 + iconSize, dgH);
   const px = W - plateW - pad;
   const py = H - plateH - pad;
   if (px < 0 || py < 0) return;
 
-  ctx.fillStyle = "#000";
+  ctx.fillStyle = OVERLAY_PLATE;
   ctx.fillRect(px, py, plateW, plateH);
   const cy = py + plateH / 2;
-  let x = px + pad;
+  ctx.globalAlpha = OVERLAY_ALPHA;
+  let x = px + (logos.disguise ? 0 : pad);
   if (logos.disguise) {
     ctx.drawImage(logos.disguise, x, cy - dgH / 2, dgW, dgH);
-    x += dgW + gap;
+    x += dgW; // its built-in right clear space separates it from DisplayForge
   }
   if (logos.displayforge) {
     ctx.drawImage(logos.displayforge, x, cy - iconSize / 2, iconSize, iconSize);
@@ -173,6 +223,7 @@ function drawBranding(ctx: CanvasRenderingContext2D, W: number, H: number, unit:
   ctx.textAlign = "left";
   ctx.textBaseline = "middle";
   ctx.fillText(text, x, cy);
+  ctx.globalAlpha = 1;
 }
 
 const STRIP = 256;

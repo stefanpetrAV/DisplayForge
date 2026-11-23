@@ -1,4 +1,4 @@
-import type { MaskSettings, Placement, PopulationVariant, RowSpan, Run, ShapeSettings, TileSpec, Vec3Like } from "./types";
+import type { MaskSettings, PatternColor, TestPatternSettings, Placement, PopulationVariant, RowSpan, Run, ShapeSettings, TileSpec, Vec3Like } from "./types";
 
 export function finiteOr(value: unknown, fallback: number): number {
   const n = typeof value === "string" && value.trim() === "" ? NaN : Number(value);
@@ -72,6 +72,15 @@ export function sanitizeMask(m: Partial<MaskSettings> | undefined): MaskSettings
     absent: m?.absent === "black" ? "black" : "transparent",
     assignToScreen: m?.assignToScreen ?? true,
   };
+}
+
+export const PATTERN_COLOR_ORDER: readonly PatternColor[] = ["R", "G", "B", "Y", "C", "M"];
+
+/** Selected colours in canonical order; none or invalid → all six. */
+export function sanitizeTestPattern(t: Partial<TestPatternSettings> | undefined): TestPatternSettings {
+  const wanted = new Set(Array.isArray(t?.colors) ? t!.colors : []);
+  const colors = PATTERN_COLOR_ORDER.filter((c) => wanted.has(c));
+  return { colors: colors.length ? colors : [...PATTERN_COLOR_ORDER] };
 }
 
 /** Variants keep their own spans; they are clipped to the screen when the mask is built. */
