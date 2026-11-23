@@ -10,6 +10,12 @@ Release date: 2026-11-23
   plugin the patterns are saved in `objects/VideoFile/TestPattern`. The plugin
   panels are now collapsible.
 
+## Fixed
+
+- **HTTP 413 Request Entity Too Large** when saving large test patterns (and
+  large population masks or OBJ files) in Designer. Payloads above 256 KB are
+  now sent to Designer in chunks.
+
 ## Changed
 
 - **No more `displayforge` folder in the project.** When the plugin is

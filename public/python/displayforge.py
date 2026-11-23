@@ -14,10 +14,14 @@ __all__ = [
     "load_state",
     "save_state",
     "project_info",
+    "upload_chunk",
+    "take_upload",
 ]
 
 import base64
+import io
 import json
+import tempfile
 
 # Designer runs plugin code with its own globals, where the name "os" is a
 # Designer object (d3.OS) that shadows the standard module: _os.path raises
@@ -44,6 +48,41 @@ TEXTURE_FOLDER = "DxTexture"
 VIDEO_FOLDER = "VideoFile"
 TEST_PATTERN_FOLDER = "TestPattern"
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
+
+
+# --------------------------------------------------------------------------
+# Chunked uploads: Designer's web server answers HTTP 413 to large requests,
+# so big payloads (test patterns, masks, OBJ text) are sent in pieces, stored
+# in a temporary file and handed to the save function with take_upload().
+# --------------------------------------------------------------------------
+
+def _upload_path(upload_id):
+    upload_id = str(upload_id)
+    if not upload_id or any(not ("a" <= c <= "z" or "0" <= c <= "9") for c in upload_id):
+        raise ValueError("Invalid upload id.")
+    return _os.path.join(tempfile.gettempdir(), "displayforge_upload_%s.part" % upload_id)
+
+
+def upload_chunk(upload_id, index, chunk):
+    """Append one piece of a payload; index 0 starts a new upload."""
+    path = _upload_path(upload_id)
+    with io.open(path, "w" if int(index) == 0 else "a", encoding="utf-8") as handle:
+        handle.write(chunk)
+    return json.dumps({"ok": True, "index": int(index)})
+
+
+def take_upload(upload_id):
+    """Return the text of a finished upload and delete its temporary file."""
+    path = _upload_path(upload_id)
+    if not _os.path.isfile(path):
+        raise ValueError("The upload %s was not received." % upload_id)
+    with io.open(path, "r", encoding="utf-8") as handle:
+        text = handle.read()
+    try:
+        _os.remove(path)
+    except Exception:
+        pass
+    return text
 
 
 def _valid_name(display_name):
