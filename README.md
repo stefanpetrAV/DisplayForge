@@ -2,7 +2,7 @@
 
 Parametric tools for LED display design and media server workflows
 
-**Current release: 0.8.1** — [release notes](RELEASE_NOTES.md) · [downloads](https://github.com/stefanpetrAV/DisplayForge/releases/latest)
+**Current release: 0.9.0** — [release notes](RELEASE_NOTES.md) · [downloads](https://github.com/stefanpetrAV/DisplayForge/releases/latest)
 
 > Design, preview and export compound-curve LED walls and custom-shaped displays for Media Servers and 3D engines.
 
@@ -14,7 +14,8 @@ DisplayForge is a parametric design tool for creating LED walls ranging from sim
 - **Create LED Screen in Disguise** – the plugin writes the OBJ into `objects/Mesh` and creates or updates the LED screen with the right resolution.
 - **Population masks** *(0.7)* – pixel-perfect PNG masks of the lit tiles, for the screen shape and for population variants (e.g. the 14-row configuration of a 15-row wall), set directly as the LED screen's *Population mask*. Automatic proportional scaling to 16384 px for larger screens.
 - **Import OBJ** *(0.8)* – rebuild an editable screen from an existing OBJ: grid and shape from the UV map, tile size and curves from the mesh, placement from a best fit.
-- **Multiple screens**, saved in the Designer project (plugin) or in the browser (standalone).
+- **Test patterns** *(0.9)* – per-tile checkerboard (R/G/B/Y/C/M alternating with grey, one colour per column) with `row,column` labels, the screen name, optional colour bars and a legal (16–235) / full (0–255) range test, saved in `objects/VideoFile/TestPattern` (plugin) or downloaded (standalone). Screens larger than 16384 px are split into equal parts on tile edges.
+- **Multiple screens**, saved in the Designer project (plugin, in the plugin's own folder: no extra folder in the project) or in the browser (standalone).
 
 ![Screenshot](images/{7C0F7EE2-1F29-4BB5-A89D-888A912DEDE2}.png)
 ![Screenshot](images/{384A207E-18C0-4F9C-90DC-0BB31DE3EC58}.png)
@@ -24,7 +25,7 @@ The application is available in several versions built from the same source code
 
 - **Disguise Plugin** – runs inside Designer and can create the LED screen directly.
 - **Standalone Web Application** – full-featured version with interactive 3D visualization.
-- **Standalone Windows Application** – portable Windows x64 executable, available on the [Releases page](https://github.com/stefanpetrAV/DisplayForge/releases/latest) (`DisplayForge 0.8.1.exe`). Saved screens are kept between sessions.
+- **Standalone Windows Application** – portable Windows x64 executable, available on the [Releases page](https://github.com/stefanpetrAV/DisplayForge/releases/latest) (`DisplayForge <version>.exe`). Saved screens are kept between sessions.
 
 Download the [Disguise plugin package](DisplayForge_Plugin.zip) or the
 [standalone web package](DisplayForge_Standalone.zip) (also attached to every
@@ -33,6 +34,9 @@ The plugin ZIP contains a `DisplayForge_Plugin` folder ready to extract into
 Designer's `Plugins` directory; its root contains `d3plugin.json`, `index.html`,
 `icon.svg`, `python/` and `assets/`. For the standalone package, extract the
 ZIP, serve the extracted folder over HTTP and open `standalone.html`.
+
+**Updating the plugin:** extract the new ZIP over the existing plugin folder
+instead of deleting it first, so the saved screens (`screens.json`) are kept.
 
 ---
 
@@ -152,6 +156,30 @@ In the plugin the mask is saved as `objects/DxTexture/<screen>_<variant>.png`
 (`<screen>_population.png` for the screen shape) and, optionally, set as the
 LED screen's *Population mask*. The standalone app downloads the PNG.
 
+## Test patterns
+
+A test pattern PNG at the LED screen's resolution, drawn on the same tile grid
+as the mesh and the population mask:
+
+- **Checkerboard** – one cell per tile. Every column has one colour,
+  alternating with neutral grey; columns cycle through the selected colours
+  (R, G, B, Y, C, M). Absent tiles are black.
+- **Labels** – each tile shows `row,column`; the screen name sits in the
+  centre, the screen data (screen size, tile grid, tile size) bottom-left of
+  every part, and the DisplayForge logo (plus the Disguise logo in the plugin)
+  bottom-right.
+- **Colour bars** (optional) and a **range test** under the name: *Legal
+  (16–235)* or *Full (0–255)* grey steps, to check the levels of the signal
+  chain.
+- **Large screens** – when a side exceeds 16384 px the pattern is split into
+  equal parts on tile edges (`<screen>_testpattern_a.png`,
+  `<screen>_testpattern_b.png`, …); the preview shows the seams.
+
+In the plugin the PNGs are saved in `objects/VideoFile/TestPattern` (the folder
+is created when missing); the standalone app downloads them. Large images are
+sent to Designer in 256 KB chunks, so multi-megabyte patterns do not hit
+Designer's request size limit (HTTP 413).
+
 ## Transform Tools
 
 Origin (left end / center / right end of the wall × bottom / middle / top),
@@ -186,12 +214,13 @@ embedded browser may not provide WebGL; a fallback message is shown).
 | Runs inside Disguise Designer | ✔ | ✖ |
 | Create LED screen in Designer | ✔ | ✖ |
 | Multiple screens | ✔ | ✔ |
-| Screens remembered | ✔ (in the Designer project) | ✔ (browser) |
+| Screens remembered | ✔ (in the Designer project, plugin folder) | ✔ (browser) |
 | 3D preview | optional | ✔ |
 | OBJ export (single / all merged) | ✔ (saved in `objects/Mesh`) | ✔ (download) |
 | Shape generator, compound curves, transforms | ✔ | ✔ |
 | Population masks (screen shape and variants) | ✔ (saved in `objects/DxTexture`, set on the LED screen) | ✔ (download PNG) |
 | Import OBJ | ✔ (project OBJs or local file; tile resolution from the LED screen) | ✔ (local file) |
+| Test patterns | ✔ (saved in `objects/VideoFile/TestPattern`) | ✔ (download PNG) |
 
 ---
 
@@ -209,11 +238,11 @@ npm run package:exe  # portable Windows exe -> release/desktop/DisplayForge <ver
 
 | Path | Content |
 |---|---|
-| `src/core/` | geometry engine (tile chain, mesh, shapes, placement, OBJ), population masks (`mask.ts`), OBJ import (`objImport.ts`) — framework-free, unit-tested |
+| `src/core/` | geometry engine (tile chain, mesh, shapes, placement, OBJ), population masks (`mask.ts`), OBJ import (`objImport.ts`), test patterns (`testPattern.ts`, `testPatternRender.ts`) — framework-free, unit-tested |
 | `src/state/` | screen store + persistence, Designer Python bridge |
 | `src/components/` | Vue components (editors, plan view, 3D viewer) |
 | `src/App.vue` | UI shared by plugin (`index.html`) and standalone (`standalone.html`) |
-| `public/python/displayforge.py` | Python module registered in Designer (OBJ save, LED screen creation, population masks, project OBJ listing, project storage) |
+| `public/python/displayforge.py` | Python module registered in Designer (OBJ save, LED screen creation, population masks, test patterns, project OBJ listing, screen storage, chunked uploads) |
 | `public/d3plugin.json` | Designer plugin manifest |
 | `desktop/main.cjs` | Electron wrapper for the portable Windows build |
 
@@ -221,5 +250,5 @@ npm run package:exe  # portable Windows exe -> release/desktop/DisplayForge <ver
 
 - `DisplayForge_Plugin.zip` — Disguise plugin (`DisplayForge_Plugin` folder; also contains the standalone page).
 - `DisplayForge_Standalone.zip` — standalone web application.
-- `DisplayForge 0.8.1.exe` — portable Windows x64 standalone app, attached to the GitHub release (not committed: large binaries belong in Releases).
+- `DisplayForge <version>.exe` — portable Windows x64 standalone app, attached to the GitHub release (not committed: large binaries belong in Releases).
 - `DisplayForge 0.5.0.exe`, `DisplayForge 0.4.0.exe` — previous builds kept in the repository; they predate the 0.6.0 fixes.
