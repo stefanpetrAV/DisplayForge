@@ -118,6 +118,15 @@ export async function savePopulationMaskToDesigner(
   return res;
 }
 
+/** Write objects/DxTexture/<fileName>.png (test pattern). */
+export async function saveTestPatternToDesigner(fileName: string, pngBase64: string): Promise<string> {
+  const res = await callPython<{ ok: boolean; path?: string; error?: string }>(
+    `return save_test_pattern(${pyStr(fileName)}, ${pyStr(pngBase64)})`,
+  );
+  if (!res?.ok) throw new Error(res?.error || "Designer did not confirm the test pattern.");
+  return res.path ?? `objects/DxTexture/${fileName}.png`;
+}
+
 /**
  * Wait for Designer to load the OBJ that save_obj just wrote, then create or
  * update the LED screen resource and add it to the stage.

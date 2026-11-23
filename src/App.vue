@@ -13,6 +13,7 @@ import ScreenManager from "./components/ScreenManager.vue";
 import PlanView from "./components/PlanView.vue";
 import PopulationMasks from "./components/PopulationMasks.vue";
 import ObjImport from "./components/ObjImport.vue";
+import TestPatterns from "./components/TestPatterns.vue";
 
 // three.js is only loaded when a 3D view is shown (keeps the plugin light).
 const MeshViewer3D = defineAsyncComponent(() => import("./components/MeshViewer3D.vue"));
@@ -112,6 +113,27 @@ async function onGenerateMask(variantId: string | null) {
     console.error("[DisplayForge] population mask failed", e);
   } finally {
     maskBusy.value = false;
+  }
+}
+
+/* ---------- test patterns ---------- */
+const patternLayout = computed(() => store.activeTestPatternLayout());
+const patternBusy = ref(false);
+const patternStatus = ref("");
+const patternError = ref(false);
+
+async function onGeneratePattern() {
+  patternBusy.value = true;
+  patternError.value = false;
+  try {
+    const res = await store.exportTestPattern((m) => (patternStatus.value = m));
+    patternStatus.value = `${isPlugin ? "Saved" : "Downloaded"} ${res.files.join(", ")}`;
+  } catch (e) {
+    patternError.value = true;
+    patternStatus.value = e instanceof Error ? e.message : String(e);
+    console.error("[DisplayForge] test pattern failed", e);
+  } finally {
+    patternBusy.value = false;
   }
 }
 
@@ -241,6 +263,12 @@ const syncClass = computed(() => ({
             @generate="onGenerateMask"
           />
           <p v-if="maskStatus" class="status" :class="{ error: maskError }">{{ maskStatus }}</p>
+        </section>
+
+        <section class="panel">
+          <h2>Test pattern</h2>
+          <TestPatterns :layout="patternLayout" :logos="store.patternLogos()" :is-plugin="isPlugin" :busy="patternBusy" @generate="onGeneratePattern" />
+          <p v-if="patternStatus" class="status" :class="{ error: patternError }">{{ patternStatus }}</p>
         </section>
 
         <section class="panel">

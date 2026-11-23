@@ -321,6 +321,20 @@ def save_population_mask(screen_name, file_name, png_base64, assign):
     return json.dumps(result)
 
 
+def save_test_pattern(file_name, png_base64):
+    """Write objects/DxTexture/<file_name>.png (a DisplayForge test pattern)."""
+    file_name = _valid_name(file_name)
+    data = base64.b64decode(png_base64)
+    if data[:8] != PNG_SIGNATURE:
+        raise ValueError("The test pattern is not a PNG image.")
+    folder, prefix = _objects_subfolder(TEXTURE_FOLDER, True)
+    if folder is None:
+        return json.dumps({"ok": False, "error": "Could not locate the Designer project folder."})
+    png_name = _existing_spelling(folder, "%s.png" % file_name)
+    _write_file(_os.path.join(folder, png_name), data)
+    return json.dumps({"ok": True, "path": "%s/%s" % (prefix, png_name)})
+
+
 # --------------------------------------------------------------------------
 # Project-side storage of the DisplayForge screens
 # --------------------------------------------------------------------------

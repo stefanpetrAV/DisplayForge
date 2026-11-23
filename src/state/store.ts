@@ -16,7 +16,9 @@ import { buildWall, mergeMeshes, type WallResult } from "../core/wall";
 import { downloadBytes, downloadText, meshToObj, resourceName } from "../core/obj";
 import type { ObjImportResult } from "../core/objImport";
 import { bytesToBase64, clipToScreen, encodeMaskPng, maskFileName, maskLayout, type MaskLayout } from "../core/mask";
-import { loadDesignerState, saveDesignerState, saveObjToDesigner, savePopulationMaskToDesigner, type PopulationMaskResult } from "./designer";
+import { loadDesignerState, saveDesignerState, saveObjToDesigner, savePopulationMaskToDesigner, saveTestPatternToDesigner, type PopulationMaskResult } from "./designer";
+import { testPatternFileName, testPatternLayout, type TestPatternLayout } from "../core/testPattern";
+import { loadImage, renderPatternPart, type PatternLogos } from "../core/testPatternRender";
 
 export interface MaskExport {
   fileName: string;
@@ -374,6 +376,49 @@ export function createStore(mode: AppMode) {
     return { fileName, layout, designer };
   }
 
+  /* ---------------- test patterns ---------------- */
+
+  function activeTestPatternLayout(): TestPatternLayout {
+    const s = active.value;
+    return testPatternLayout(s.name, totalColumns(s), s.rows, s.tile);
+  }
+
+  let logoCache: Promise<PatternLogos> | undefined;
+  /** DisplayForge icon everywhere; the Disguise logo only in the Designer plugin, and only if installed. */
+  function patternLogos(): Promise<PatternLogos> {
+    logoCache ??= (async () => {
+      const displayforge = await loadImage("./icon.png");
+      if (mode !== "plugin") return { displayforge };
+      const disguise = (await loadImage("./brand/disguise-logo-white.svg")) ?? (await loadImage("./brand/disguise-logo-white.png"));
+      return {
+        displayforge,
+        disguise,
+        disguiseSize: disguise ? { width: disguise.naturalWidth, height: disguise.naturalHeight } : undefined,
+      };
+    })();
+    return logoCache;
+  }
+
+  /** Render every part of the active screen's test pattern; download it or save it in objects/DxTexture. */
+  async function exportTestPattern(onProgress: (message: string) => void): Promise<{ layout: TestPatternLayout; files: string[] }> {
+    const layout = activeTestPatternLayout();
+    const logos = await patternLogos();
+    const files: string[] = [];
+    for (const [i, part] of layout.parts.entries()) {
+      const fileName = testPatternFileName(layout.screenName, part);
+      const tag = layout.parts.length > 1 ? ` (part ${i + 1}/${layout.parts.length})` : "";
+      const png = await renderPatternPart(layout, part, logos, (f) => onProgress(`Rendering ${fileName}.png${tag} · ${Math.round(f * 100)} %`));
+      if (mode !== "plugin") {
+        downloadBytes(png, `${fileName}.png`, "image/png");
+        files.push(`${fileName}.png`);
+      } else {
+        onProgress(`Saving ${fileName}.png in the project…`);
+        files.push(await saveTestPatternToDesigner(fileName, bytesToBase64(png)));
+      }
+    }
+    return { layout, files };
+  }
+
   return {
     state,
     active,
@@ -408,6 +453,9 @@ export function createStore(mode: AppMode) {
     exportActiveObj,
     exportAllObj,
     exportMask,
+    activeTestPatternLayout,
+    patternLogos,
+    exportTestPattern,
   };
 }
 
