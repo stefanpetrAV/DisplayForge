@@ -8,15 +8,20 @@ __all__ = [
     "create_led_screen",
     "save_obj",
     "save_population_mask",
+    "save_test_pattern",
     "list_meshes",
     "read_mesh",
     "load_state",
     "save_state",
     "project_info",
+    "upload_chunk",
+    "take_upload",
 ]
 
 import base64
+import io
 import json
+import tempfile
 
 # Designer runs plugin code with its own globals, where the name "os" is a
 # Designer object (d3.OS) that shadows the standard module: _os.path raises
@@ -24,8 +29,15 @@ import json
 # imports and injected globals never overwrite.
 import os as _os
 
-STATE_FOLDER = "displayforge"
+# The screens are saved next to the plugin's own files when the plugin is
+# installed inside the project (<project>/plugins/<folder>), so DisplayForge
+# adds no folder of its own to the project. LEGACY_STATE_FOLDER is the
+# fallback (plugin installed outside the project) and the 0.8.x
+# location, migrated on the first save.
+LEGACY_STATE_FOLDER = "displayforge"
 STATE_FILE = "screens.json"
+PLUGIN_NAME = "DisplayForge"
+PLUGIN_MANIFEST = "d3plugin.json"
 
 # Designer's own resource folders. DisplayForge writes its files straight into
 # these with Python instead of going through the browser download: Designer's
@@ -33,7 +45,44 @@ STATE_FILE = "screens.json"
 # a folder that must not exist in the project.
 MESH_FOLDER = "Mesh"
 TEXTURE_FOLDER = "DxTexture"
+VIDEO_FOLDER = "VideoFile"
+TEST_PATTERN_FOLDER = "TestPattern"
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
+
+
+# --------------------------------------------------------------------------
+# Chunked uploads: Designer's web server answers HTTP 413 to large requests,
+# so big payloads (test patterns, masks, OBJ text) are sent in pieces, stored
+# in a temporary file and handed to the save function with take_upload().
+# --------------------------------------------------------------------------
+
+def _upload_path(upload_id):
+    upload_id = str(upload_id)
+    if not upload_id or any(not ("a" <= c <= "z" or "0" <= c <= "9") for c in upload_id):
+        raise ValueError("Invalid upload id.")
+    return _os.path.join(tempfile.gettempdir(), "displayforge_upload_%s.part" % upload_id)
+
+
+def upload_chunk(upload_id, index, chunk):
+    """Append one piece of a payload; index 0 starts a new upload."""
+    path = _upload_path(upload_id)
+    with io.open(path, "w" if int(index) == 0 else "a", encoding="utf-8") as handle:
+        handle.write(chunk)
+    return json.dumps({"ok": True, "index": int(index)})
+
+
+def take_upload(upload_id):
+    """Return the text of a finished upload and delete its temporary file."""
+    path = _upload_path(upload_id)
+    if not _os.path.isfile(path):
+        raise ValueError("The upload %s was not received." % upload_id)
+    with io.open(path, "r", encoding="utf-8") as handle:
+        text = handle.read()
+    try:
+        _os.remove(path)
+    except Exception:
+        pass
+    return text
 
 
 def _valid_name(display_name):
@@ -321,6 +370,29 @@ def save_population_mask(screen_name, file_name, png_base64, assign):
     return json.dumps(result)
 
 
+def save_test_pattern(file_name, png_base64):
+    """Write objects/VideoFile/TestPattern/<file_name>.png (a DisplayForge test
+    pattern), creating the TestPattern folder when it does not exist."""
+    file_name = _valid_name(file_name)
+    data = base64.b64decode(png_base64)
+    if data[:8] != PNG_SIGNATURE:
+        raise ValueError("The test pattern is not a PNG image.")
+    video, video_prefix = _objects_subfolder(VIDEO_FOLDER, True)
+    if video is None:
+        return json.dumps({"ok": False, "error": "Could not locate the Designer project folder."})
+    folder = prefix = None
+    for entry in _os.listdir(video):
+        if entry.lower() == TEST_PATTERN_FOLDER.lower() and _os.path.isdir(_os.path.join(video, entry)):
+            folder, prefix = _os.path.join(video, entry), "%s/%s" % (video_prefix, entry)
+            break
+    if folder is None:
+        folder, prefix = _os.path.join(video, TEST_PATTERN_FOLDER), "%s/%s" % (video_prefix, TEST_PATTERN_FOLDER)
+        _os.makedirs(folder)
+    png_name = _existing_spelling(folder, "%s.png" % file_name)
+    _write_file(_os.path.join(folder, png_name), data)
+    return json.dumps({"ok": True, "path": "%s/%s" % (prefix, png_name)})
+
+
 # --------------------------------------------------------------------------
 # Project-side storage of the DisplayForge screens
 # --------------------------------------------------------------------------
@@ -367,11 +439,60 @@ def _project_folder():
     return None
 
 
+def _plugin_folder(project):
+    """Folder of this plugin when it is installed in <project>/plugins, else None.
+
+    The module is registered from text, so it cannot use __file__: look for a
+    plugin folder whose d3plugin.json is named DisplayForge.
+    """
+    plugins = None
+    for entry in _os.listdir(project):
+        if entry.lower() == "plugins" and _os.path.isdir(_os.path.join(project, entry)):
+            plugins = _os.path.join(project, entry)
+            break
+    if plugins is None:
+        return None
+    for entry in sorted(_os.listdir(plugins)):
+        manifest = _os.path.join(plugins, entry, PLUGIN_MANIFEST)
+        if not _os.path.isfile(manifest):
+            continue
+        try:
+            with open(manifest, "r") as handle:
+                name = json.loads(handle.read()).get("name")
+        except Exception:
+            continue
+        if str(name).strip().lower() == PLUGIN_NAME.lower():
+            return _os.path.join(plugins, entry)
+    return None
+
+
+def _legacy_state_path(folder):
+    return _os.path.join(folder, LEGACY_STATE_FOLDER, STATE_FILE)
+
+
 def _state_path():
     folder = _project_folder()
     if folder is None:
         return None, None
-    return folder, _os.path.join(folder, STATE_FOLDER, STATE_FILE)
+    plugin = _plugin_folder(folder)
+    if plugin is not None:
+        return folder, _os.path.join(plugin, STATE_FILE)
+    return folder, _legacy_state_path(folder)
+
+
+def _remove_legacy_state(folder, path):
+    """After a save next to the plugin, drop the old <project>/displayforge copy."""
+    legacy = _legacy_state_path(folder)
+    if _os.path.normcase(_os.path.abspath(legacy)) == _os.path.normcase(_os.path.abspath(path)):
+        return
+    try:
+        if _os.path.isfile(legacy):
+            _os.remove(legacy)
+        directory = _os.path.dirname(legacy)
+        if _os.path.isdir(directory) and not _os.listdir(directory):
+            _os.rmdir(directory)
+    except Exception:
+        pass
 
 
 def project_info():
@@ -383,15 +504,20 @@ def load_state():
     folder, path = _state_path()
     if folder is None:
         return json.dumps({"ok": False, "error": "Could not locate the Designer project folder."})
+    migrate = False
     if not _os.path.isfile(path):
-        return json.dumps({"ok": True, "projectFolder": folder, "data": None})
+        legacy = _legacy_state_path(folder)
+        if not _os.path.isfile(legacy):
+            return json.dumps({"ok": True, "projectFolder": folder, "data": None})
+        path = legacy  # saved by 0.8.1 or earlier: the plugin saves it again next to itself
+        migrate = True
     with open(path, "r") as handle:
         text = handle.read()
     try:
         data = json.loads(text)
     except ValueError as error:
         return json.dumps({"ok": False, "projectFolder": folder, "error": "Invalid %s: %s" % (path, error)})
-    return json.dumps({"ok": True, "projectFolder": folder, "data": data})
+    return json.dumps({"ok": True, "projectFolder": folder, "data": data, "migrate": migrate})
 
 
 def save_state(text):
@@ -408,4 +534,5 @@ def save_state(text):
     if _os.path.exists(path):
         _os.remove(path)
     _os.rename(temp_path, path)
+    _remove_legacy_state(folder, path)
     return json.dumps({"ok": True, "projectFolder": folder, "stateFile": path})

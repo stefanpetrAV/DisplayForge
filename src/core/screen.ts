@@ -1,5 +1,6 @@
 import type { PopulationVariant, ProjectState, ScreenConfig } from "./types";
 import {
+  sanitizeTestPattern,
   MAX_ROWS,
   clamp,
   normalizeRows,
@@ -49,6 +50,7 @@ export function createScreen(name: string): ScreenConfig {
     placement: sanitizePlacement(undefined),
     populations: [],
     mask: sanitizeMask(undefined),
+    testPattern: sanitizeTestPattern(undefined),
   };
   refit(screen);
   return screen;
@@ -96,6 +98,7 @@ export function sanitizeScreen(raw: unknown, fallbackName: string): ScreenConfig
     placement: sanitizePlacement(s.placement),
     populations: [],
     mask: sanitizeMask(s.mask),
+    testPattern: sanitizeTestPattern(s.testPattern),
   };
   screen.populations = sanitizePopulations(s.populations, screen.rows.length, cols, newId);
   if (s.designer && typeof s.designer.resourceName === "string") screen.designer = s.designer;

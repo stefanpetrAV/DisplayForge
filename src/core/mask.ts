@@ -141,17 +141,10 @@ function chunk(type: string, data: Uint8Array): Uint8Array {
  * zeros and compresses to almost nothing.
  */
 export async function encodeMaskPng(layout: MaskLayout, absent: MaskAbsent): Promise<Uint8Array> {
-  if (typeof CompressionStream === "undefined") {
-    throw new Error("This browser cannot compress PNG images (CompressionStream is not available).");
-  }
   const { width, height, rows, columnEdges, rowEdges } = layout;
   if (width <= 0 || height <= 0) throw new Error("The mask has no pixels.");
   const stride = 1 + width * 4;
   const off = absent === "black" ? [0, 0, 0, 255] : [0, 0, 0, 0];
-
-  const stream = new CompressionStream("deflate"); // zlib format, as PNG requires
-  const compressed = new Response(stream.readable).arrayBuffer();
-  const writer = stream.writable.getWriter();
   const sameAsAbove = new Uint8Array(stride);
   sameAsAbove[0] = 2; // filter "Up", all differences zero
 
@@ -159,30 +152,53 @@ export async function encodeMaskPng(layout: MaskLayout, absent: MaskAbsent): Pro
   const columnOf = new Int32Array(width);
   for (let c = 0; c < columnEdges.length - 1; c++) columnOf.fill(c, columnEdges[c], columnEdges[c + 1]);
 
-  for (let r = 0; r < rows.length; r++) {
-    const row = rows[r];
-    const lines = rowEdges[r + 1] - rowEdges[r];
-    if (lines <= 0) continue;
-    const line = new Uint8Array(stride); // filter 0 ("None")
-    for (let x = 0; x < width; x++) {
-      const col = columnOf[x];
-      const lit = col >= row.startColumn && col < row.startColumn + row.columnCount;
-      const p = 1 + x * 4;
-      if (lit) {
-        line[p] = 255;
-        line[p + 1] = 255;
-        line[p + 2] = 255;
-        line[p + 3] = 255;
-      } else {
-        line[p] = off[0];
-        line[p + 1] = off[1];
-        line[p + 2] = off[2];
-        line[p + 3] = off[3];
+  return encodeRgbaPng(width, height, async (write) => {
+    for (let r = 0; r < rows.length; r++) {
+      const row = rows[r];
+      const lines = rowEdges[r + 1] - rowEdges[r];
+      if (lines <= 0) continue;
+      const line = new Uint8Array(stride); // filter 0 ("None")
+      for (let x = 0; x < width; x++) {
+        const col = columnOf[x];
+        const lit = col >= row.startColumn && col < row.startColumn + row.columnCount;
+        const p = 1 + x * 4;
+        if (lit) {
+          line[p] = 255;
+          line[p + 1] = 255;
+          line[p + 2] = 255;
+          line[p + 3] = 255;
+        } else {
+          line[p] = off[0];
+          line[p + 1] = off[1];
+          line[p + 2] = off[2];
+          line[p + 3] = off[3];
+        }
       }
+      await write(line);
+      for (let y = 1; y < lines; y++) await write(sameAsAbove);
     }
-    await writer.write(line);
-    for (let y = 1; y < lines; y++) await writer.write(sameAsAbove);
+  });
+}
+
+/**
+ * Streaming 8-bit RGBA PNG encoder. `produce` must call `write` exactly
+ * `height` times, each time with one filtered scanline (1 filter byte +
+ * width * 4 bytes). Lines are deflated as they arrive, so images far larger
+ * than a canvas or a single ArrayBuffer comfortably holds can be written.
+ */
+export async function encodeRgbaPng(
+  width: number,
+  height: number,
+  produce: (write: (line: Uint8Array) => Promise<void>) => Promise<void>,
+): Promise<Uint8Array> {
+  if (typeof CompressionStream === "undefined") {
+    throw new Error("This browser cannot compress PNG images (CompressionStream is not available).");
   }
+  if (width <= 0 || height <= 0) throw new Error("The image has no pixels.");
+  const stream = new CompressionStream("deflate"); // zlib format, as PNG requires
+  const compressed = new Response(stream.readable).arrayBuffer();
+  const writer = stream.writable.getWriter();
+  await produce((line) => writer.write(line));
   await writer.close();
   const idat = new Uint8Array(await compressed);
 

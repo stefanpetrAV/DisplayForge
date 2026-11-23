@@ -62,6 +62,26 @@ function parseReturn(raw: unknown): any {
 /** Python string literal for an arbitrary JS string (JSON escapes are valid Python 3 escapes). */
 const pyStr = (s: string) => JSON.stringify(s);
 
+/**
+ * Designer's web server rejects large requests (HTTP 413 Request Entity Too
+ * Large), so payloads above this size are sent in chunks with upload_chunk()
+ * and read back on the Python side with take_upload().
+ */
+export const UPLOAD_CHUNK = 256 * 1024;
+
+/** Python expression for `text`: a literal when small, else a chunked upload read with take_upload(). */
+async function pyPayload(text: string): Promise<string> {
+  if (text.length <= UPLOAD_CHUNK) return pyStr(text);
+  const id = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 10)}`.replace(/[^a-z0-9]/g, "");
+  for (let index = 0, offset = 0; offset < text.length; index++, offset += UPLOAD_CHUNK) {
+    const res = await callPython<{ ok: boolean }>(
+      `return upload_chunk(${pyStr(id)}, ${index}, ${pyStr(text.slice(offset, offset + UPLOAD_CHUNK))})`,
+    );
+    if (!res?.ok) throw new Error("Designer did not confirm an upload chunk.");
+  }
+  return `take_upload(${pyStr(id)})`;
+}
+
 export async function callPython<T = any>(script: string): Promise<T> {
   await ensureRegistered();
   const result = await post("execute", { moduleName: MODULE_NAME, script });
@@ -72,6 +92,8 @@ export interface LoadStateResult {
   ok: boolean;
   projectFolder?: string;
   data?: unknown;
+  /** The state was read from the 0.8.x location and should be saved again. */
+  migrate?: boolean;
   error?: string;
 }
 
@@ -89,7 +111,7 @@ const delay = (ms: number) => new Promise((r) => window.setTimeout(r, ms));
  */
 export async function saveObjToDesigner(name: string, objText: string): Promise<string> {
   const res = await callPython<{ ok: boolean; path?: string; error?: string }>(
-    `return save_obj(${pyStr(name)}, ${pyStr(objText)})`,
+    `return save_obj(${pyStr(name)}, ${await pyPayload(objText)})`,
   );
   if (!res?.ok) throw new Error(res?.error || "Designer did not confirm the OBJ save.");
   return res.path ?? `objects/Mesh/${name}.obj`;
@@ -112,10 +134,19 @@ export async function savePopulationMaskToDesigner(
   assign: boolean,
 ): Promise<PopulationMaskResult> {
   const res = await callPython<PopulationMaskResult>(
-    `return save_population_mask(${pyStr(screenName)}, ${pyStr(fileName)}, ${pyStr(pngBase64)}, ${assign ? "True" : "False"})`,
+    `return save_population_mask(${pyStr(screenName)}, ${pyStr(fileName)}, ${await pyPayload(pngBase64)}, ${assign ? "True" : "False"})`,
   );
   if (!res) throw new Error("Designer did not answer the population mask request.");
   return res;
+}
+
+/** Write objects/VideoFile/TestPattern/<fileName>.png (folder created if missing). */
+export async function saveTestPatternToDesigner(fileName: string, pngBase64: string): Promise<string> {
+  const res = await callPython<{ ok: boolean; path?: string; error?: string }>(
+    `return save_test_pattern(${pyStr(fileName)}, ${await pyPayload(pngBase64)})`,
+  );
+  if (!res?.ok) throw new Error(res?.error || "Designer did not confirm the test pattern.");
+  return res.path ?? `objects/VideoFile/TestPattern/${fileName}.png`;
 }
 
 /**

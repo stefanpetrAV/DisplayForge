@@ -85,6 +85,22 @@ export interface ScreenConfig {
   /** Alternative populations of the same mesh, each exported as its own population mask. */
   populations: PopulationVariant[];
   mask: MaskSettings;
+  testPattern: TestPatternSettings;
+}
+
+/** Colours of the test-pattern checkerboard (75 % R, G, B, Y, C, M). */
+export type PatternColor = "R" | "G" | "B" | "Y" | "C" | "M";
+
+/** Signal-range test drawn under the screen name: none, legal (16–235) or full (0–255). */
+export type LevelsTest = "off" | "legal" | "full";
+
+export interface TestPatternSettings {
+  /** Selected colours, in R G B Y C M order; column c uses colors[c mod n], alternating with grey. */
+  colors: PatternColor[];
+  /** Colour-bar box under the screen name. */
+  colorBars: boolean;
+  /** Legal / full range test under the name (and under the colour bars). */
+  levels: LevelsTest;
 }
 
 /**

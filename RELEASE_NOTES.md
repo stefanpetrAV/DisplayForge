@@ -1,3 +1,33 @@
+# DisplayForge 0.9.0
+
+Release date: 2026-11-23
+
+## New
+
+- **Test patterns.** Per-tile RGBYCM/grey checkerboard with the screen name,
+  per-column colours, colour bars, legal (16–235) / full range test and
+  `row,col` tile labels, with the Disguise and DisplayForge logos. In the
+  plugin the patterns are saved in `objects/VideoFile/TestPattern`. The plugin
+  panels are now collapsible.
+
+## Fixed
+
+- **HTTP 413 Request Entity Too Large** when saving large test patterns (and
+  large population masks or OBJ files) in Designer. Payloads above 256 KB are
+  now sent to Designer in chunks.
+
+## Changed
+
+- **No more `displayforge` folder in the project.** When the plugin is
+  installed inside the Designer project (`<project>/plugins/...`), the screens
+  are saved in `screens.json` in the plugin's own folder. Screens saved in
+  `<project>/displayforge/screens.json` by 0.8.x are loaded and
+  moved there automatically, and the old folder is removed when empty. A
+  plugin installed outside the project still uses
+  `<project>/displayforge/screens.json`, so screens of different projects are
+  never mixed. To update the plugin, extract the new ZIP over the old folder
+  instead of deleting it, so `screens.json` is kept.
+
 # DisplayForge 0.8.1
 
 Release date: 2026-11-23

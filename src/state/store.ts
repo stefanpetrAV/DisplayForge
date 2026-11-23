@@ -1,5 +1,5 @@
 import { computed, reactive, ref, toRaw, watch, type ComputedRef } from "vue";
-import type { MaskSettings, Placement, ProjectState, Run, RowSpan, ScreenConfig, ShapeSettings, TileSpec } from "../core/types";
+import type { MaskSettings, Placement, ProjectState, Run, RowSpan, ScreenConfig, ShapeSettings, PatternColor, TestPatternSettings, TileSpec } from "../core/types";
 import {
   cloneScreen,
   createPopulation,
@@ -11,12 +11,14 @@ import {
   setRowCount,
   totalColumns,
 } from "../core/screen";
-import { normalizeRows, sanitizeMask, sanitizePlacement, sanitizeRuns, sanitizeTile } from "../core/sanitize";
+import { normalizeRows, sanitizeMask, sanitizePlacement, sanitizeRuns, sanitizeTestPattern, sanitizeTile } from "../core/sanitize";
 import { buildWall, mergeMeshes, type WallResult } from "../core/wall";
 import { downloadBytes, downloadText, meshToObj, resourceName } from "../core/obj";
 import type { ObjImportResult } from "../core/objImport";
 import { bytesToBase64, clipToScreen, encodeMaskPng, maskFileName, maskLayout, type MaskLayout } from "../core/mask";
-import { loadDesignerState, saveDesignerState, saveObjToDesigner, savePopulationMaskToDesigner, type PopulationMaskResult } from "./designer";
+import { loadDesignerState, saveDesignerState, saveObjToDesigner, savePopulationMaskToDesigner, saveTestPatternToDesigner, type PopulationMaskResult } from "./designer";
+import { testPatternFileName, testPatternLayout, type TestPatternLayout } from "../core/testPattern";
+import { loadImage, renderPatternPart, type PatternLogos } from "../core/testPatternRender";
 
 export interface MaskExport {
   fileName: string;
@@ -103,7 +105,7 @@ export function createStore(mode: AppMode) {
       const res = await saveDesignerState(json);
       if (!res?.ok) throw new Error(res?.error || "Designer did not confirm the save.");
       syncStatus.value = "designer";
-      syncMessage.value = `Saved in the Designer project (${res.stateFile ?? "displayforge/screens.json"})`;
+      syncMessage.value = `Saved in the Designer project (${res.stateFile ?? "screens.json"})`;
     } catch (e) {
       syncStatus.value = "designer-error";
       syncMessage.value = `Could not save in the Designer project: ${e instanceof Error ? e.message : e}. A local copy is kept in this browser.`;
@@ -130,7 +132,7 @@ export function createStore(mode: AppMode) {
         ? `Loaded ${fromDesigner.screens.length} screen(s) from the Designer project`
         : "No saved screens in this Designer project yet";
       ready = true;
-      if (!fromDesigner && fromLocal) void saveNow();
+      if ((!fromDesigner && fromLocal) || (fromDesigner && res.migrate)) void saveNow();
     } catch (e) {
       // Not running inside Designer (or the API is unreachable): fall back to browser storage.
       const fromLocal = readLocal(LOCAL_KEY);
@@ -374,6 +376,61 @@ export function createStore(mode: AppMode) {
     return { fileName, layout, designer };
   }
 
+  /* ---------------- test patterns ---------------- */
+
+  function activeTestPatternLayout(): TestPatternLayout {
+    const s = active.value;
+    return testPatternLayout(s.name, totalColumns(s), s.rows, s.tile, s.testPattern);
+  }
+
+  function updateTestPattern(patch: Partial<TestPatternSettings>) {
+    const s = active.value;
+    s.testPattern = sanitizeTestPattern({ ...s.testPattern, ...patch });
+  }
+
+  /** Select / deselect one colour; the last selected colour cannot be removed. */
+  function setTestPatternColor(name: PatternColor, on: boolean) {
+    const current = active.value.testPattern.colors;
+    const next = on ? [...current, name] : current.filter((c) => c !== name);
+    if (next.length) updateTestPattern({ colors: next });
+  }
+
+  let logoCache: Promise<PatternLogos> | undefined;
+  /** DisplayForge icon everywhere; the Disguise logo only in the Designer plugin, and only if installed. */
+  function patternLogos(): Promise<PatternLogos> {
+    logoCache ??= (async () => {
+      const displayforge = await loadImage("./icon.png");
+      if (mode !== "plugin") return { displayforge };
+      const disguise = (await loadImage("./brand/disguise-logo-white.svg")) ?? (await loadImage("./brand/disguise-logo-white.png"));
+      return {
+        displayforge,
+        disguise,
+        disguiseSize: disguise ? { width: disguise.naturalWidth, height: disguise.naturalHeight } : undefined,
+      };
+    })();
+    return logoCache;
+  }
+
+  /** Render every part of the active screen's test pattern; download it or save it in objects/VideoFile/TestPattern. */
+  async function exportTestPattern(onProgress: (message: string) => void): Promise<{ layout: TestPatternLayout; files: string[] }> {
+    const layout = activeTestPatternLayout();
+    const logos = await patternLogos();
+    const files: string[] = [];
+    for (const [i, part] of layout.parts.entries()) {
+      const fileName = testPatternFileName(layout.screenName, part);
+      const tag = layout.parts.length > 1 ? ` (part ${i + 1}/${layout.parts.length})` : "";
+      const png = await renderPatternPart(layout, part, logos, (f) => onProgress(`Rendering ${fileName}.png${tag} · ${Math.round(f * 100)} %`));
+      if (mode !== "plugin") {
+        downloadBytes(png, `${fileName}.png`, "image/png");
+        files.push(`${fileName}.png`);
+      } else {
+        onProgress(`Saving ${fileName}.png in the project…`);
+        files.push(await saveTestPatternToDesigner(fileName, bytesToBase64(png)));
+      }
+    }
+    return { layout, files };
+  }
+
   return {
     state,
     active,
@@ -408,6 +465,11 @@ export function createStore(mode: AppMode) {
     exportActiveObj,
     exportAllObj,
     exportMask,
+    activeTestPatternLayout,
+    updateTestPattern,
+    setTestPatternColor,
+    patternLogos,
+    exportTestPattern,
   };
 }
 
