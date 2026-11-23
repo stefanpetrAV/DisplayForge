@@ -8,6 +8,8 @@ __all__ = [
     "create_led_screen",
     "save_obj",
     "save_population_mask",
+    "list_meshes",
+    "read_mesh",
     "load_state",
     "save_state",
     "project_info",
@@ -189,6 +191,91 @@ def save_obj(display_name, text):
     except Exception:
         pass  # create_led_screen retries the load
     return json.dumps({"ok": True, "path": relative})
+
+
+# --------------------------------------------------------------------------
+# OBJ import: list and read the meshes of the project
+# --------------------------------------------------------------------------
+
+# Folders DisplayForge reads OBJ files from. objects/meshfromobj is listed only
+# so OBJs left there by older versions can still be imported.
+IMPORT_FOLDERS = (MESH_FOLDER, "meshfromobj")
+
+
+def _screens_using(relative_path):
+    """LED screens whose mesh is the OBJ at relative_path: [{name, resolution}]."""
+    import d3
+
+    wanted = relative_path.replace("\\", "/").lower()
+    found = []
+    try:
+        screens = d3.resourceManager.allResources(d3.LedScreen)
+    except Exception:
+        screens = list(d3.state.stage.ledScreens)
+    for screen in screens:
+        try:
+            mesh = screen.mesh
+            if mesh is None:
+                continue
+            mesh_path = str(mesh.path).replace("\\", "/").lower()
+            if not mesh_path.endswith(wanted):
+                continue
+            found.append({
+                "name": str(screen.description),
+                "resolution": [int(screen.resolution.x), int(screen.resolution.y)],
+            })
+        except Exception:
+            continue
+    return found
+
+
+def list_meshes():
+    """OBJ files in objects/Mesh (and legacy objects/meshfromobj), with the LED screens that use them."""
+    if _project_folder() is None:
+        return json.dumps({"ok": False, "error": "Could not locate the Designer project folder."})
+    meshes = []
+    for wanted in IMPORT_FOLDERS:
+        folder, prefix = _objects_subfolder(wanted, False)
+        if folder is None:
+            continue
+        for entry in sorted(_os.listdir(folder), key=lambda s: s.lower()):
+            path = _os.path.join(folder, entry)
+            if not entry.lower().endswith(".obj") or not _os.path.isfile(path):
+                continue
+            relative = "%s/%s" % (prefix, entry)
+            meshes.append({
+                "path": relative,
+                "size": _os.path.getsize(path),
+                "screens": _screens_using(relative),
+            })
+    return json.dumps({"ok": True, "meshes": meshes})
+
+
+def read_mesh(relative_path):
+    """Text of an OBJ listed by list_meshes (only objects/Mesh and objects/meshfromobj)."""
+    parts = str(relative_path).replace("\\", "/").split("/")
+    if (
+        len(parts) != 3
+        or parts[0].lower() != "objects"
+        or parts[1].lower() not in [f.lower() for f in IMPORT_FOLDERS]
+        or not parts[2].lower().endswith(".obj")
+        or parts[2] in ("", ".", "..")
+    ):
+        raise ValueError("Only OBJ files in objects/Mesh can be imported.")
+    folder, prefix = _objects_subfolder(parts[1], False)
+    if folder is None:
+        return json.dumps({"ok": False, "error": "Folder objects/%s not found." % parts[1]})
+    path = _os.path.join(folder, parts[2])
+    if not _os.path.isfile(path):
+        return json.dumps({"ok": False, "error": "%s not found." % relative_path})
+    with open(path, "rb") as handle:
+        data = handle.read()
+    try:
+        text = data.decode("utf-8")
+    except UnicodeDecodeError:
+        text = data.decode("latin-1")
+    relative = "%s/%s" % (prefix, parts[2])
+    return json.dumps({"ok": True, "path": relative, "text": text, "screens": _screens_using(relative)})
 
 
 def save_population_mask(screen_name, file_name, png_base64, assign):

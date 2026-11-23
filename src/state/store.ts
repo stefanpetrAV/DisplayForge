@@ -14,6 +14,7 @@ import {
 import { normalizeRows, sanitizeMask, sanitizePlacement, sanitizeRuns, sanitizeTile } from "../core/sanitize";
 import { buildWall, mergeMeshes, type WallResult } from "../core/wall";
 import { downloadBytes, downloadText, meshToObj, resourceName } from "../core/obj";
+import type { ObjImportResult } from "../core/objImport";
 import { bytesToBase64, clipToScreen, encodeMaskPng, maskFileName, maskLayout, type MaskLayout } from "../core/mask";
 import { loadDesignerState, saveDesignerState, saveObjToDesigner, savePopulationMaskToDesigner, type PopulationMaskResult } from "./designer";
 
@@ -216,6 +217,23 @@ export function createStore(mode: AppMode) {
     active.value.placement = sanitizePlacement(p);
   }
 
+  /* ---------------- OBJ import ---------------- */
+
+  /** Add a screen rebuilt from an imported OBJ and make it active. */
+  function addImportedScreen(name: string, result: ObjImportResult, designer?: { resourceName: string; resolution: [number, number] }) {
+    const s = createScreen(name.trim() || nextScreenName(state.screens));
+    s.tile = sanitizeTile(result.tile);
+    s.runs = sanitizeRuns(result.runs);
+    s.rows = normalizeRows(result.rows, result.rows.length, totalColumns(s));
+    s.shape.kind = "custom";
+    s.shape.autoFit = false;
+    s.placement = sanitizePlacement(result.placement);
+    if (designer) s.designer = { ...designer, updatedAt: new Date().toISOString() };
+    state.screens.push(s);
+    state.activeId = s.id;
+    return s;
+  }
+
   /* ---------------- population variants ---------------- */
 
   function findPopulation(id: string) {
@@ -377,6 +395,7 @@ export function createStore(mode: AppMode) {
     updateShape,
     updateRow,
     updatePlacement,
+    addImportedScreen,
     addPopulation,
     duplicatePopulation,
     removePopulation,

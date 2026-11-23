@@ -78,6 +78,33 @@ In the plugin the OBJ buttons also save into `objects/Mesh` instead of
 downloading: Designer's download handler files downloaded `.obj` files under
 `objects/meshfromobj`, a folder that must not exist in the project.
 
+## Import OBJ
+
+**Import OBJ** rebuilds a screen from an existing OBJ by analysing its mesh
+and UV map:
+
+- **Grid and shape** from the UV map (u = column / columns, v = row / rows):
+  which tiles exist in every row.
+- **Tile size** (mm) from the tile edges in the mesh.
+- **Runs**: the hinge angle between neighbouring columns, grouped into
+  straight and curved runs.
+- **Placement**: position and X/Y/Z rotation from a least-squares fit of the
+  rebuilt wall onto the OBJ; the report shows the largest remaining
+  difference in mm.
+
+The tile pixel resolution is not stored in an OBJ. In the plugin it is read
+from the LED screen that uses the mesh (screen resolution ÷ grid), and the
+imported screen takes that LED screen's name; otherwise it is the value
+entered in the import panel. The plugin lists the OBJ files of the project
+(`objects/Mesh`, plus legacy `objects/meshfromobj`) and can also import a
+local file; the standalone app imports a local file.
+
+Requirements: a regular UV grid covering the whole screen with a vertex on
+every tile corner (e.g. one quad per tile) and one tile size for the whole
+wall. A finer UV grid (tiles split into several quads) is read as smaller
+tiles. Rows with gaps are filled, because DisplayForge keeps one continuous
+span per row, and reported.
+
 ## Population masks
 
 A population mask is a PNG that tells disguise which pixels of an LED screen

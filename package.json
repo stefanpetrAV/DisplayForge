@@ -1,7 +1,7 @@
 {
   "name": "displayforge",
   "private": true,
-  "version": "0.7.1",
+  "version": "0.8.0",
   "description": "Parametric LED wall builder (compound curves, custom shapes) with OBJ export and a disguise Designer plugin.",
   "author": "DisplayForge",
   "type": "module",

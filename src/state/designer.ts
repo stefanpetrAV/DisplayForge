@@ -144,3 +144,32 @@ export async function createLedScreen(
   }
   throw new Error(`Timed out waiting for the OBJ after 30 seconds. Last error: ${lastError}`);
 }
+
+/* ---------------- OBJ import ---------------- */
+
+export interface ProjectMeshScreen {
+  name: string;
+  resolution: [number, number];
+}
+
+export interface ProjectMesh {
+  path: string;
+  size: number;
+  /** LED screens of the project that use this mesh. */
+  screens: ProjectMeshScreen[];
+}
+
+/** OBJ files in objects/Mesh (and legacy objects/meshfromobj). */
+export async function listProjectMeshes(): Promise<ProjectMesh[]> {
+  const res = await callPython<{ ok: boolean; meshes?: ProjectMesh[]; error?: string }>("return list_meshes()");
+  if (!res?.ok) throw new Error(res?.error || "Designer did not list the project meshes.");
+  return res.meshes ?? [];
+}
+
+export async function readProjectMesh(path: string): Promise<{ path: string; text: string; screens: ProjectMeshScreen[] }> {
+  const res = await callPython<{ ok: boolean; path?: string; text?: string; screens?: ProjectMeshScreen[]; error?: string }>(
+    `return read_mesh(${pyStr(path)})`,
+  );
+  if (!res?.ok || typeof res.text !== "string") throw new Error(res?.error || `Designer could not read ${path}.`);
+  return { path: res.path ?? path, text: res.text, screens: res.screens ?? [] };
+}

@@ -1,3 +1,28 @@
+# DisplayForge 0.8.0
+
+Release date: 2026-11-23
+
+## New
+
+- **Import OBJ.** Rebuild a DisplayForge screen from an existing OBJ by
+  analysing its mesh and UV map: the column × row grid and the shape (lit
+  tiles per row) come from the UV map, tile width/height and the hinge angle
+  between columns (straight and curved runs) from the mesh, and the placement
+  (position and X/Y/Z rotation) from a least-squares fit of the rebuilt wall
+  onto the OBJ. The report shows the largest remaining difference in mm.
+  - Plugin: pick an OBJ of the project (`objects/Mesh`, plus legacy
+    `objects/meshfromobj`). When one LED screen uses the mesh, the tile pixel
+    resolution is taken from that screen and the imported screen takes its
+    name, so *Update LED Screen* targets it. Local OBJ files can be imported
+    too.
+  - Standalone: import a local OBJ file.
+  - Requirements: a regular UV grid with a vertex on every tile corner, one
+    tile size for the whole wall. Rows with gaps are filled (DisplayForge has
+    one continuous span per row) and reported.
+  - Checked on the ANCI walls: `wall_v2.obj` (84 × 14, straight runs with 5°
+    kinks) and `wall_v3.obj` (84 × 15, 0.6° per tile) are rebuilt within
+    0.01 mm.
+
 # DisplayForge 0.7.1
 
 Release date: 2026-11-23
