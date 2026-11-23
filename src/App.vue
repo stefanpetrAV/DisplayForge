@@ -12,6 +12,7 @@ import TransformEditor from "./components/TransformEditor.vue";
 import ScreenManager from "./components/ScreenManager.vue";
 import PlanView from "./components/PlanView.vue";
 import PopulationMasks from "./components/PopulationMasks.vue";
+import ObjImport from "./components/ObjImport.vue";
 
 // three.js is only loaded when a 3D view is shown (keeps the plugin light).
 const MeshViewer3D = defineAsyncComponent(() => import("./components/MeshViewer3D.vue"));
@@ -185,6 +186,13 @@ const syncClass = computed(() => ({
         </section>
 
         <section class="panel">
+          <details class="import-panel">
+            <summary>Import OBJ</summary>
+            <ObjImport :is-plugin="isPlugin" :default-tile="screen.tile" @imported="store.addImportedScreen" />
+          </details>
+        </section>
+
+        <section class="panel">
           <h2>Tile — {{ screen.name }}</h2>
           <div class="grid-2">
             <NumField label="Tile width (mm)" :model-value="screen.tile.tileWidthMm" :min="1" @update:model-value="store.updateTile({ tileWidthMm: $event })" />
@@ -317,6 +325,8 @@ header { display: flex; justify-content: space-between; align-items: center; gap
 .viewer-panel { display: flex; flex-direction: column; flex: 1; min-height: 360px; }
 .viewer-box { flex: 1; min-height: 300px; }
 .plugin-viewer { height: 320px; margin-top: 8px; }
+.import-panel summary { cursor: pointer; color: var(--accent); font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; }
+.import-panel[open] summary { margin-bottom: 8px; }
 .viewer-toggle summary { cursor: pointer; color: var(--accent); font-size: 12px; margin-top: 8px; }
 .actions { display: flex; flex-direction: column; gap: 8px; }
 .sync { font-size: 11px; color: var(--text-muted); margin-top: 8px; }
