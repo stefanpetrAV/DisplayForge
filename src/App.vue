@@ -11,6 +11,7 @@ import ShapeEditor from "./components/ShapeEditor.vue";
 import TransformEditor from "./components/TransformEditor.vue";
 import ScreenManager from "./components/ScreenManager.vue";
 import PlanView from "./components/PlanView.vue";
+import PopulationMasks from "./components/PopulationMasks.vue";
 
 // three.js is only loaded when a 3D view is shown (keeps the plugin light).
 const MeshViewer3D = defineAsyncComponent(() => import("./components/MeshViewer3D.vue"));
@@ -47,10 +48,10 @@ const createError = ref(false);
 async function onCreateLedScreen() {
   creating.value = true;
   createError.value = false;
-  createStatus.value = "Exporting OBJ…";
+  createStatus.value = "Saving the OBJ in objects/Mesh…";
   const target = screen.value;
   try {
-    const exported = store.downloadActiveObj();
+    const exported = await store.exportActiveObj();
     if (!exported) throw new Error(store.errorText.value || "Could not export the mesh.");
     const res = await createLedScreen(exported.name, exported.width, exported.height, (m) => (createStatus.value = m));
     target.designer = { resourceName: exported.name, resolution: res.resolution, updatedAt: new Date().toISOString() };
@@ -61,6 +62,55 @@ async function onCreateLedScreen() {
     console.error("[DisplayForge] LED screen creation failed", e);
   } finally {
     creating.value = false;
+  }
+}
+
+/* ---------- OBJ export (plugin: written into objects/Mesh) ---------- */
+const exportStatus = ref("");
+
+async function onExportActive() {
+  exportStatus.value = "";
+  const res = await store.exportActiveObj();
+  if (res && isPlugin) exportStatus.value = `Saved ${res.path}`;
+}
+
+async function onExportAll() {
+  exportStatus.value = "";
+  const path = await store.exportAllObj();
+  if (path && isPlugin) exportStatus.value = `Saved ${path}`;
+}
+
+/* ---------- population masks ---------- */
+const maskBusy = ref(false);
+const maskStatus = ref("");
+const maskError = ref(false);
+
+async function onGenerateMask(variantId: string | null) {
+  maskBusy.value = true;
+  maskError.value = false;
+  maskStatus.value = "Building the mask…";
+  try {
+    const res = await store.exportMask(variantId);
+    const size = `${res.layout.width} × ${res.layout.height} px`;
+    if (!res.designer) {
+      maskStatus.value = `${res.fileName}.png downloaded · ${size}`;
+    } else if (!res.designer.ok) {
+      throw new Error(res.designer.error || "Designer did not confirm the mask.");
+    } else if (res.designer.assigned) {
+      const sr = res.designer.screenResolution;
+      const mismatch = sr && (sr[0] !== res.layout.width || sr[1] !== res.layout.height);
+      maskStatus.value =
+        `${res.designer.path} set as population mask of ${res.designer.screen} · ${size}` +
+        (mismatch ? ` (LED screen is ${sr![0]} × ${sr![1]} px)` : "");
+    } else {
+      maskStatus.value = `Saved ${res.designer.path} · ${size}`;
+    }
+  } catch (e) {
+    maskError.value = true;
+    maskStatus.value = e instanceof Error ? e.message : String(e);
+    console.error("[DisplayForge] population mask failed", e);
+  } finally {
+    maskBusy.value = false;
   }
 }
 
@@ -113,8 +163,8 @@ const syncClass = computed(() => ({
         <h1>DisplayForge</h1>
       </div>
       <div class="header-actions">
-        <button type="button" class="ghost" @click="store.downloadAllObj()">Download all (.obj)</button>
-        <button type="button" class="primary" @click="store.downloadActiveObj()">Download active (.obj)</button>
+        <button type="button" class="ghost" @click="onExportAll">{{ isPlugin ? "Save all to project (.obj)" : "Download all (.obj)" }}</button>
+        <button type="button" class="primary" @click="onExportActive">{{ isPlugin ? "Save active to project (.obj)" : "Download active (.obj)" }}</button>
       </div>
     </header>
 
@@ -162,6 +212,30 @@ const syncClass = computed(() => ({
         </section>
 
         <section class="panel">
+          <h2>Population masks</h2>
+          <PopulationMasks
+            :screen-name="screen.name"
+            :rows="screen.rows"
+            :total-columns="columns"
+            :tile="screen.tile"
+            :populations="screen.populations"
+            :mask="screen.mask"
+            :is-plugin="isPlugin"
+            :busy="maskBusy"
+            @mask="store.updateMask"
+            @add="store.addPopulation"
+            @duplicate="store.duplicatePopulation"
+            @remove="store.removePopulation"
+            @rename="store.renamePopulation"
+            @reset="store.resetPopulation"
+            @row="store.updatePopulationRow"
+            @row-lit="store.setPopulationRowLit"
+            @generate="onGenerateMask"
+          />
+          <p v-if="maskStatus" class="status" :class="{ error: maskError }">{{ maskStatus }}</p>
+        </section>
+
+        <section class="panel">
           <h2>Origin and placement</h2>
           <TransformEditor
             :placement="screen.placement"
@@ -195,7 +269,8 @@ const syncClass = computed(() => ({
             File / resource name: <code>{{ exportName }}.obj</code>
             <template v-if="screen.designer"> · last sent to Designer {{ new Date(screen.designer.updatedAt).toLocaleString() }}</template>
           </p>
-          <button type="button" class="primary" @click="store.downloadActiveObj()">Download .obj</button>
+          <button type="button" class="primary" @click="onExportActive">{{ isPlugin ? "Save .obj to objects/Mesh" : "Download .obj" }}</button>
+          <p v-if="exportStatus" class="status">{{ exportStatus }}</p>
           <template v-if="isPlugin">
             <button type="button" class="primary" :disabled="creating" @click="onCreateLedScreen">
               {{ screen.designer ? "Update LED Screen in Designer" : "Create LED Screen in Designer" }}

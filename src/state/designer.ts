@@ -83,7 +83,43 @@ export const saveDesignerState = (json: string) =>
 const delay = (ms: number) => new Promise((r) => window.setTimeout(r, ms));
 
 /**
- * Wait for Designer to import the OBJ that was just downloaded, then create or
+ * Write an OBJ into the project's objects/Mesh folder through Python.
+ * The plugin never uses a browser download for OBJ files: Designer's download
+ * handler files them under objects/meshfromobj, which must not exist.
+ */
+export async function saveObjToDesigner(name: string, objText: string): Promise<string> {
+  const res = await callPython<{ ok: boolean; path?: string; error?: string }>(
+    `return save_obj(${pyStr(name)}, ${pyStr(objText)})`,
+  );
+  if (!res?.ok) throw new Error(res?.error || "Designer did not confirm the OBJ save.");
+  return res.path ?? `objects/Mesh/${name}.obj`;
+}
+
+export interface PopulationMaskResult {
+  ok: boolean;
+  path?: string;
+  assigned?: boolean;
+  screen?: string;
+  screenResolution?: [number, number];
+  error?: string;
+}
+
+/** Write objects/DxTexture/<fileName>.png and optionally set it as the LED screen's population mask. */
+export async function savePopulationMaskToDesigner(
+  screenName: string,
+  fileName: string,
+  pngBase64: string,
+  assign: boolean,
+): Promise<PopulationMaskResult> {
+  const res = await callPython<PopulationMaskResult>(
+    `return save_population_mask(${pyStr(screenName)}, ${pyStr(fileName)}, ${pyStr(pngBase64)}, ${assign ? "True" : "False"})`,
+  );
+  if (!res) throw new Error("Designer did not answer the population mask request.");
+  return res;
+}
+
+/**
+ * Wait for Designer to load the OBJ that save_obj just wrote, then create or
  * update the LED screen resource and add it to the stage.
  */
 export async function createLedScreen(
@@ -92,7 +128,6 @@ export async function createLedScreen(
   height: number,
   onProgress: (message: string) => void,
 ): Promise<{ name: string; resolution: [number, number] }> {
-  await delay(1000);
   const deadline = Date.now() + 30000;
   const retryDelays = [250, 500, 1000, 1500, 2000];
   let attempt = 0;

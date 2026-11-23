@@ -82,6 +82,30 @@ export interface ScreenConfig {
   shape: ShapeSettings;
   placement: Placement;
   designer?: DesignerLink;
+  /** Alternative populations of the same mesh, each exported as its own population mask. */
+  populations: PopulationVariant[];
+  mask: MaskSettings;
+}
+
+/**
+ * A population variant: an alternative set of lit tiles on the same mesh
+ * (e.g. the 14-row configuration of a 15-row wall). Rows are top-to-bottom
+ * like ScreenConfig.rows and are always clipped to the screen's own rows.
+ */
+export interface PopulationVariant {
+  id: string;
+  name: string;
+  rows: RowSpan[];
+}
+
+/** How the absent tiles are written in the population mask. */
+export type MaskAbsent = "transparent" | "black";
+
+export interface MaskSettings {
+  /** disguise: alpha 0 = see-through (tile not there); black = tile there but dark. */
+  absent: MaskAbsent;
+  /** Plugin: set the saved PNG as the LED screen's population mask. */
+  assignToScreen: boolean;
 }
 
 export interface ProjectState {

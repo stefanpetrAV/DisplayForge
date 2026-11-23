@@ -1,5 +1,16 @@
-import type { ProjectState, ScreenConfig } from "./types";
-import { MAX_ROWS, clamp, normalizeRows, positiveInt, sanitizePlacement, sanitizeRuns, sanitizeShape, sanitizeTile } from "./sanitize";
+import type { PopulationVariant, ProjectState, ScreenConfig } from "./types";
+import {
+  MAX_ROWS,
+  clamp,
+  normalizeRows,
+  positiveInt,
+  sanitizeMask,
+  sanitizePlacement,
+  sanitizePopulations,
+  sanitizeRuns,
+  sanitizeShape,
+  sanitizeTile,
+} from "./sanitize";
 import { autoFitShape, fullRows, rowsForShape, type GridSize } from "./shapes";
 
 export function newId(): string {
@@ -36,6 +47,8 @@ export function createScreen(name: string): ScreenConfig {
     rows: fullRows(4, cols),
     shape: sanitizeShape(undefined, cols),
     placement: sanitizePlacement(undefined),
+    populations: [],
+    mask: sanitizeMask(undefined),
   };
   refit(screen);
   return screen;
@@ -46,6 +59,7 @@ export function cloneScreen(source: ScreenConfig, name: string): ScreenConfig {
   copy.id = newId();
   copy.name = name;
   delete copy.designer;
+  copy.populations = copy.populations.map((v) => ({ ...v, id: newId() }));
   return copy;
 }
 
@@ -80,7 +94,10 @@ export function sanitizeScreen(raw: unknown, fallbackName: string): ScreenConfig
     rows: normalizeRows(rowsIn, Math.min(rowsIn.length, MAX_ROWS), cols),
     shape: sanitizeShape(s.shape, cols),
     placement: sanitizePlacement(s.placement),
+    populations: [],
+    mask: sanitizeMask(s.mask),
   };
+  screen.populations = sanitizePopulations(s.populations, screen.rows.length, cols, newId);
   if (s.designer && typeof s.designer.resourceName === "string") screen.designer = s.designer;
   // Legacy data without shape info: keep rows as they are.
   if (!s.shape) screen.shape.kind = "custom";
@@ -106,4 +123,16 @@ export function nextScreenName(screens: ScreenConfig[]): string {
   const names = new Set(screens.map((s) => s.name));
   while (names.has(`Screen ${n}`)) n++;
   return `Screen ${n}`;
+}
+
+/** New population variant starting from the screen's current shape. */
+export function createPopulation(screen: ScreenConfig, name: string): PopulationVariant {
+  return { id: newId(), name, rows: screen.rows.map((r) => ({ ...r })) };
+}
+
+export function nextPopulationName(screen: ScreenConfig): string {
+  let n = screen.populations.length + 1;
+  const names = new Set(screen.populations.map((p) => p.name));
+  while (names.has(`Variant ${n}`)) n++;
+  return `Variant ${n}`;
 }

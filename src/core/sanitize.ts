@@ -1,4 +1,4 @@
-import type { Placement, RowSpan, Run, ShapeSettings, TileSpec, Vec3Like } from "./types";
+import type { MaskSettings, Placement, PopulationVariant, RowSpan, Run, ShapeSettings, TileSpec, Vec3Like } from "./types";
 
 export function finiteOr(value: unknown, fallback: number): number {
   const n = typeof value === "string" && value.trim() === "" ? NaN : Number(value);
@@ -65,4 +65,30 @@ export function sanitizeShape(s: Partial<ShapeSettings> | undefined, totalColumn
     circleDiameterColumns: positiveInt(s?.circleDiameterColumns, totalColumns),
     diamondWidthColumns: positiveInt(s?.diamondWidthColumns, totalColumns),
   };
+}
+
+export function sanitizeMask(m: Partial<MaskSettings> | undefined): MaskSettings {
+  return {
+    absent: m?.absent === "black" ? "black" : "transparent",
+    assignToScreen: m?.assignToScreen ?? true,
+  };
+}
+
+/** Variants keep their own spans; they are clipped to the screen when the mask is built. */
+export function sanitizePopulations(
+  list: Partial<PopulationVariant>[] | undefined,
+  rowCount: number,
+  totalColumns: number,
+  newId: () => string,
+): PopulationVariant[] {
+  if (!Array.isArray(list)) return [];
+  const seen = new Set<string>();
+  return list.map((v, i) => {
+    let id = typeof v?.id === "string" && v.id ? v.id : newId();
+    if (seen.has(id)) id = newId();
+    seen.add(id);
+    const name = typeof v?.name === "string" && v.name.trim() ? v.name.trim() : `Variant ${i + 1}`;
+    const rows = normalizeRows(Array.isArray(v?.rows) ? v.rows : [], rowCount, totalColumns);
+    return { id, name, rows };
+  });
 }
