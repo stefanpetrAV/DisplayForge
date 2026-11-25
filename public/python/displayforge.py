@@ -21,6 +21,7 @@ __all__ = [
 import base64
 import io
 import json
+import re as _re
 import tempfile
 
 # Designer runs plugin code with its own globals, where the name "os" is a
@@ -46,7 +47,10 @@ PLUGIN_MANIFEST = "d3plugin.json"
 MESH_FOLDER = "Mesh"
 TEXTURE_FOLDER = "DxTexture"
 VIDEO_FOLDER = "VideoFile"
-TEST_PATTERN_FOLDER = "TestPattern"
+# Designer creates objects/VideoFile/test patterns in every project; the
+# DisplayForge patterns go in a DisplayForge subfolder of it.
+TEST_PATTERN_FOLDER = "test patterns"
+TEST_PATTERN_SUBFOLDER = PLUGIN_NAME
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 
 
@@ -370,27 +374,86 @@ def save_population_mask(screen_name, file_name, png_base64, assign):
     return json.dumps(result)
 
 
+def _child_folder(parent, parent_prefix, wanted):
+    """(absolute folder, project-relative prefix) of parent/<wanted>, matched
+    case-insensitively and created when it does not exist."""
+    for entry in _os.listdir(parent):
+        if entry.lower() == wanted.lower() and _os.path.isdir(_os.path.join(parent, entry)):
+            return _os.path.join(parent, entry), "%s/%s" % (parent_prefix, entry)
+    folder = _os.path.join(parent, wanted)
+    _os.makedirs(folder)
+    return folder, "%s/%s" % (parent_prefix, wanted)
+
+
+def _version_stem(name):
+    """File stem without a trailing numeric version tag: "a_v3" -> "a"."""
+    match = _re.match(r"^(.*?)_v\d+$", name)
+    return match.group(1) if match else name
+
+
+def _versions(folder, stem, extension):
+    """{version number: file name} of the files in `folder` that are versions of
+    stem.extension, following Designer's content versioning: "stem.png" is
+    version 1, "stem_v2.png", "stem_v3.png"... the later ones."""
+    pattern = _re.compile(r"^%s(?:_v(\d+))?%s$" % (_re.escape(stem), _re.escape(extension)), _re.IGNORECASE)
+    found = {}
+    for entry in _os.listdir(folder):
+        match = pattern.match(entry)
+        if match and _os.path.isfile(_os.path.join(folder, entry)):
+            found[int(match.group(1)) if match.group(1) else 1] = entry
+    return found
+
+
+def _read_bytes(path):
+    with open(path, "rb") as handle:
+        return handle.read()
+
+
 def save_test_pattern(file_name, png_base64):
-    """Write objects/VideoFile/TestPattern/<file_name>.png (a DisplayForge test
-    pattern), creating the TestPattern folder when it does not exist."""
-    file_name = _valid_name(file_name)
-    data = base64.b64decode(png_base64)
-    if data[:8] != PNG_SIGNATURE:
-        raise ValueError("The test pattern is not a PNG image.")
-    video, video_prefix = _objects_subfolder(VIDEO_FOLDER, True)
-    if video is None:
-        return json.dumps({"ok": False, "error": "Could not locate the Designer project folder."})
-    folder = prefix = None
-    for entry in _os.listdir(video):
-        if entry.lower() == TEST_PATTERN_FOLDER.lower() and _os.path.isdir(_os.path.join(video, entry)):
-            folder, prefix = _os.path.join(video, entry), "%s/%s" % (video_prefix, entry)
-            break
-    if folder is None:
-        folder, prefix = _os.path.join(video, TEST_PATTERN_FOLDER), "%s/%s" % (video_prefix, TEST_PATTERN_FOLDER)
-        _os.makedirs(folder)
-    png_name = _existing_spelling(folder, "%s.png" % file_name)
-    _write_file(_os.path.join(folder, png_name), data)
-    return json.dumps({"ok": True, "path": "%s/%s" % (prefix, png_name)})
+    """Save a DisplayForge test pattern in objects/VideoFile/test patterns/DisplayForge.
+
+    Designer keeps media files open and cannot have them overwritten, so an
+    existing pattern is never rewritten: a changed pattern is saved as the next
+    version (<name>_v2.png, <name>_v3.png...), which Designer's content
+    versioning picks up and swaps in wherever the clip is used. A pattern
+    identical to the latest version is not saved again."""
+    try:
+        stem = _version_stem(_valid_name(file_name))
+        data = base64.b64decode(png_base64)
+        if data[:8] != PNG_SIGNATURE:
+            raise ValueError("The test pattern is not a PNG image.")
+        video, video_prefix = _objects_subfolder(VIDEO_FOLDER, True)
+        if video is None:
+            return json.dumps({"ok": False, "error": "Could not locate the Designer project folder."})
+        patterns, patterns_prefix = _child_folder(video, video_prefix, TEST_PATTERN_FOLDER)
+        folder, prefix = _child_folder(patterns, patterns_prefix, TEST_PATTERN_SUBFOLDER)
+
+        versions = _versions(folder, stem, ".png")
+        if versions:
+            latest = max(versions)
+            latest_name = versions[latest]
+            if _read_bytes(_os.path.join(folder, latest_name)) == data:
+                return json.dumps({"ok": True, "path": "%s/%s" % (prefix, latest_name), "version": latest, "unchanged": True})
+            version = latest + 1
+            png_name = "%s_v%d.png" % (stem, version)
+        else:
+            version = 1
+            png_name = "%s.png" % stem
+        _write_new_file(_os.path.join(folder, png_name), data)
+        return json.dumps({"ok": True, "path": "%s/%s" % (prefix, png_name), "version": version, "unchanged": False})
+    except Exception as error:
+        return json.dumps({"ok": False, "error": "Could not save the test pattern: %s" % error})
+
+
+def _write_new_file(path, data):
+    """Write a file that does not exist yet, through a temporary file so
+    Designer never picks up a half-written image."""
+    if _os.path.exists(path):
+        raise ValueError("%s already exists." % _os.path.basename(path))
+    temp_path = path + ".partial"
+    with open(temp_path, "wb") as handle:
+        handle.write(data)
+    _os.rename(temp_path, path)
 
 
 # --------------------------------------------------------------------------
