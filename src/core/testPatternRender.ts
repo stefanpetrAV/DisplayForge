@@ -32,6 +32,9 @@ export interface PatternLogos {
 /** Corner overlays (screen data, signature) are translucent so the pattern shows through. */
 const OVERLAY_PLATE = "rgba(0,0,0,0.45)";
 const OVERLAY_ALPHA = 0.85;
+/** viewBox of the official landscape Disguise SVG, and the height of the logo inside it (y 20…74). */
+const DISGUISE_BOX = { width: 292, height: 94 };
+const DISGUISE_VISIBLE = 54;
 const OVERLAY_TEXT = `rgba(255,255,255,${OVERLAY_ALPHA})`;
 const FONT = '"Segoe UI", "Inter", Arial, sans-serif';
 const css = (c: Rgb, a = 1) => `rgba(${c[0]},${c[1]},${c[2]},${a})`;
@@ -126,9 +129,9 @@ export function drawTestPattern(
   ctx.strokeStyle = "rgba(255,255,255,0.35)";
   ctx.stroke();
 
-  // Screen name in the centre, optionally followed by the colour bars and the
-  // legal / full range test. The whole group is centred vertically (the name
-  // alone sits exactly in the middle) and shrinks to fit short screens.
+  // Screen name in the centre, optionally preceded by the Disguise logo and
+  // followed by the colour bars and the legal / full range test. The whole
+  // group is centred vertically and shrinks to fit short screens.
   const name = layout.screenName.trim() || "Screen";
   ctx.font = `700 100px ${FONT}`;
   const measured = ctx.measureText(name).width || 1;
@@ -138,16 +141,29 @@ export function drawTestPattern(
   let barsH = layout.colorBars ? blockW * 0.16 : 0;
   let levelsH = levels ? blockW * 0.24 : 0;
   let gap = nameSize * 0.2;
-  const total = () => nameSize + (barsH ? gap + barsH : 0) + (levelsH ? gap + levelsH : 0);
+  // Disguise logo: the official landscape SVG on black, its built-in clear
+  // space kept as the black margin; the visible logo is half the name height.
+  const logoBox = logos.disguise ? logos.disguiseSize ?? DISGUISE_BOX : undefined;
+  let logoH = logoBox ? ((nameSize * 0.5) / DISGUISE_VISIBLE) * logoBox.height : 0;
+  const total = () => (logoH ? logoH + gap : 0) + nameSize + (barsH ? gap + barsH : 0) + (levelsH ? gap + levelsH : 0);
   const fit = (H * 0.85) / total();
   if (fit < 1) {
     nameSize *= fit;
     blockW *= fit;
     barsH *= fit;
     levelsH *= fit;
+    logoH *= fit;
     gap *= fit;
   }
   let y = H / 2 - total() / 2;
+  if (logos.disguise && logoBox && logoH) {
+    const logoW = (logoH * logoBox.width) / logoBox.height;
+    const lx = Math.round(W / 2 - logoW / 2);
+    ctx.fillStyle = "#000";
+    ctx.fillRect(lx, Math.round(y), Math.round(logoW), Math.round(logoH));
+    ctx.drawImage(logos.disguise, lx, Math.round(y), Math.round(logoW), Math.round(logoH));
+    y += logoH + gap;
+  }
   ctx.font = `700 ${nameSize}px ${FONT}`;
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
@@ -286,12 +302,9 @@ function drawInfo(ctx: CanvasRenderingContext2D, layout: TestPatternLayout, part
 }
 
 /**
- * Bottom-right signature: [Disguise logo]  [DisplayForge icon] DisplayForge.
- * No background plate: the marks sit directly on the pattern at
- * OVERLAY_ALPHA. The DisplayForge icon has rounded corners. The Disguise logo
- * is the official landscape artwork in white, visible logo at least 15 px high, keeping the
- * clear space built into the official SVG (brand.disguise.one: black or white
- * only, no outline/shadow/rotation/distortion).
+ * Bottom-right signature: [DisplayForge icon] DisplayForge, directly on the
+ * pattern at OVERLAY_ALPHA. The icon has rounded corners. (The Disguise logo
+ * sits in the centre, above the screen name.)
  */
 function drawBranding(ctx: CanvasRenderingContext2D, W: number, H: number, unit: number, logos: PatternLogos) {
   const pad = Math.round(unit * 0.5);
@@ -300,34 +313,15 @@ function drawBranding(ctx: CanvasRenderingContext2D, W: number, H: number, unit:
   ctx.font = `600 ${textSize}px ${FONT}`;
   const text = "DisplayForge";
   const textW = ctx.measureText(text).width;
-  const dfW = (logos.displayforge ? iconSize + pad * 0.5 : 0) + textW;
-
-  // The official landscape SVG (viewBox 292 × 94) already contains the
-  // brand clear space: the logo itself spans y 20…74 (54 units high), with
-  // 34 units free on the left. Size the whole box so the visible logo is
-  // ~0.8 unit high and never below the 15 px minimum, and add no extra
-  // padding on its left.
-  let dgW = 0;
-  let dgH = 0;
-  if (logos.disguise) {
-    const s = logos.disguiseSize;
-    const box = s && s.height > 0 ? s : { width: 292, height: 94 };
-    dgH = (Math.max(15, unit * 0.8) * box.height) / 54;
-    dgW = (dgH * box.width) / box.height;
-  }
-  const plateW = (logos.disguise ? dgW : pad) + dfW + pad;
-  const plateH = Math.max(pad * 2 + iconSize, dgH);
+  const plateW = (logos.displayforge ? iconSize + pad * 0.5 : 0) + textW + pad * 2;
+  const plateH = pad * 2 + iconSize;
   const px = W - plateW - pad;
   const py = H - plateH - pad;
   if (px < 0 || py < 0) return;
 
   const cy = py + plateH / 2;
   ctx.globalAlpha = OVERLAY_ALPHA;
-  let x = px + (logos.disguise ? 0 : pad);
-  if (logos.disguise) {
-    ctx.drawImage(logos.disguise, x, cy - dgH / 2, dgW, dgH);
-    x += dgW; // its built-in right clear space separates it from DisplayForge
-  }
+  let x = px + pad;
   if (logos.displayforge) {
     ctx.save();
     ctx.beginPath();

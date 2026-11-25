@@ -140,13 +140,32 @@ export async function savePopulationMaskToDesigner(
   return res;
 }
 
-/** Write objects/VideoFile/TestPattern/<fileName>.png (folder created if missing). */
-export async function saveTestPatternToDesigner(fileName: string, pngBase64: string): Promise<string> {
-  const res = await callPython<{ ok: boolean; path?: string; error?: string }>(
+export const TEST_PATTERN_FOLDER = "VideoFile/test patterns/DisplayForge";
+
+export interface TestPatternSaveResult {
+  /** Project-relative path of the file now holding the pattern. */
+  path: string;
+  /** 1 for <name>.png, 2 for <name>_v2.png... (Designer content versioning). */
+  version: number;
+  /** The pattern was identical to the latest version, so nothing was written. */
+  unchanged: boolean;
+}
+
+/**
+ * Save a test pattern in objects/VideoFile/test patterns/DisplayForge. An
+ * existing file is never overwritten (Designer keeps it open): a changed
+ * pattern becomes the next version, <name>_v2.png, <name>_v3.png...
+ */
+export async function saveTestPatternToDesigner(fileName: string, pngBase64: string): Promise<TestPatternSaveResult> {
+  const res = await callPython<{ ok: boolean; path?: string; version?: number; unchanged?: boolean; error?: string }>(
     `return save_test_pattern(${pyStr(fileName)}, ${await pyPayload(pngBase64)})`,
   );
   if (!res?.ok) throw new Error(res?.error || "Designer did not confirm the test pattern.");
-  return res.path ?? `objects/VideoFile/TestPattern/${fileName}.png`;
+  return {
+    path: res.path ?? `objects/${TEST_PATTERN_FOLDER}/${fileName}.png`,
+    version: res.version ?? 1,
+    unchanged: !!res.unchanged,
+  };
 }
 
 /**

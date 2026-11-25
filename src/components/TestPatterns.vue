@@ -5,6 +5,7 @@ import type { LevelsTest, PatternColor, TestPatternSettings } from "../core/type
 import { testPatternFileName, PATTERN_COLORS } from "../core/testPattern";
 import { MAX_TEXTURE_SIDE } from "../core/mask";
 import { drawTestPattern, type PatternLogos } from "../core/testPatternRender";
+import { TEST_PATTERN_FOLDER } from "../state/designer";
 
 const props = defineProps<{
   layout: TestPatternLayout;
@@ -94,7 +95,7 @@ const disguiseMissing = computed(() => props.isPlugin && !resolvedLogos.value.di
     </p>
     <div class="buttons">
       <button type="button" class="primary" :disabled="busy" @click="emit('generate')">
-        {{ isPlugin ? "Save test pattern to VideoFile/TestPattern" : "Download test pattern" }}
+        {{ isPlugin ? `Save test pattern to ${TEST_PATTERN_FOLDER}` : "Download test pattern" }}
       </button>
     </div>
   </div>

@@ -1,3 +1,27 @@
+# DisplayForge 0.9.1
+
+Release date: 2026-11-25
+
+## Fixed
+
+- **"Designer Python API: HTTP 500" when saving a test pattern again.**
+  Designer keeps the PNG open once it is loaded, so overwriting it failed.
+  Test patterns are no longer overwritten: a changed pattern is saved as the
+  next version (`<name>_v2.png`, `<name>_v3.png`, …) following Designer's
+  content versioning, and Designer swaps it in wherever the clip is used.
+  Saving an unchanged pattern writes nothing. Save errors are now reported
+  with their real message instead of an HTTP 500.
+- **Disguise logo hard to see.** It was a small translucent mark in the
+  bottom-right corner, lost on the coloured tiles. It now sits in the centre,
+  above the screen name, on black with its official clear space.
+
+## Changed
+
+- Test patterns are saved in Designer's own `objects/VideoFile/test patterns`
+  folder, in a `DisplayForge` subfolder, instead of a new
+  `objects/VideoFile/TestPattern` folder. Patterns saved there by 0.9.0 are
+  left untouched.
+
 # DisplayForge 0.9.0
 
 Release date: 2026-11-23

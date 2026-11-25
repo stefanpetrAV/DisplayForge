@@ -411,7 +411,7 @@ export function createStore(mode: AppMode) {
     return logoCache;
   }
 
-  /** Render every part of the active screen's test pattern; download it or save it in objects/VideoFile/TestPattern. */
+  /** Render every part of the active screen's test pattern; download it or save it in objects/VideoFile/test patterns/DisplayForge. */
   async function exportTestPattern(onProgress: (message: string) => void): Promise<{ layout: TestPatternLayout; files: string[] }> {
     const layout = activeTestPatternLayout();
     const logos = await patternLogos();
@@ -425,7 +425,9 @@ export function createStore(mode: AppMode) {
         files.push(`${fileName}.png`);
       } else {
         onProgress(`Saving ${fileName}.png in the project…`);
-        files.push(await saveTestPatternToDesigner(fileName, bytesToBase64(png)));
+        const saved = await saveTestPatternToDesigner(fileName, bytesToBase64(png));
+        const name = saved.path.split("/").pop() ?? saved.path;
+        files.push(saved.unchanged ? `${name} (unchanged)` : saved.version > 1 ? `${name} (version ${saved.version})` : name);
       }
     }
     return { layout, files };

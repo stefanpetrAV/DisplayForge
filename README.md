@@ -2,7 +2,7 @@
 
 Parametric tools for LED display design and media server workflows
 
-**Current release: 0.9.0** — [release notes](RELEASE_NOTES.md) · [downloads](https://github.com/stefanpetrAV/DisplayForge/releases/latest)
+**Current release: 0.9.1** — [release notes](RELEASE_NOTES.md) · [downloads](https://github.com/stefanpetrAV/DisplayForge/releases/latest)
 
 > Design, preview and export compound-curve LED walls and custom-shaped displays for Media Servers and 3D engines.
 
@@ -14,7 +14,7 @@ DisplayForge is a parametric design tool for creating LED walls ranging from sim
 - **Create LED Screen in Disguise** – the plugin writes the OBJ into `objects/Mesh` and creates or updates the LED screen with the right resolution.
 - **Population masks** *(0.7)* – pixel-perfect PNG masks of the lit tiles, for the screen shape and for population variants (e.g. the 14-row configuration of a 15-row wall), set directly as the LED screen's *Population mask*. Automatic proportional scaling to 16384 px for larger screens.
 - **Import OBJ** *(0.8)* – rebuild an editable screen from an existing OBJ: grid and shape from the UV map, tile size and curves from the mesh, placement from a best fit.
-- **Test patterns** *(0.9)* – per-tile checkerboard (R/G/B/Y/C/M alternating with grey, one colour per column) with `row,column` labels, the screen name, optional colour bars and a legal (16–235) / full (0–255) range test, saved in `objects/VideoFile/TestPattern` (plugin) or downloaded (standalone). Screens larger than 16384 px are split into equal parts on tile edges.
+- **Test patterns** *(0.9)* – per-tile checkerboard (R/G/B/Y/C/M alternating with grey, one colour per column) with `row,column` labels, the screen name, optional colour bars and a legal (16–235) / full (0–255) range test, saved in `objects/VideoFile/test patterns/DisplayForge` with Designer content versioning (plugin) or downloaded (standalone). Screens larger than 16384 px are split into equal parts on tile edges.
 - **Multiple screens**, saved in the Designer project (plugin, in the plugin's own folder: no extra folder in the project) or in the browser (standalone).
 
 ![Screenshot](images/{7C0F7EE2-1F29-4BB5-A89D-888A912DEDE2}.png)
@@ -165,9 +165,9 @@ as the mesh and the population mask:
   alternating with neutral grey; columns cycle through the selected colours
   (R, G, B, Y, C, M). Absent tiles are black.
 - **Labels** – each tile shows `row,column`; the screen name sits in the
-  centre, the screen data (screen size, tile grid, tile size) bottom-left of
-  every part, and the DisplayForge logo (plus the Disguise logo in the plugin)
-  bottom-right.
+  centre (under the Disguise logo, in the plugin), the screen data (screen
+  size, tile grid, tile size) bottom-left of every part, and the DisplayForge
+  logo bottom-right.
 - **Colour bars** (optional) and a **range test** under the name: *Legal
   (16–235)* or *Full (0–255)* grey steps, to check the levels of the signal
   chain.
@@ -175,8 +175,14 @@ as the mesh and the population mask:
   equal parts on tile edges (`<screen>_testpattern_a.png`,
   `<screen>_testpattern_b.png`, …); the preview shows the seams.
 
-In the plugin the PNGs are saved in `objects/VideoFile/TestPattern` (the folder
-is created when missing); the standalone app downloads them. Large images are
+In the plugin the PNGs are saved in `objects/VideoFile/test patterns/DisplayForge`
+(inside the `test patterns` folder Designer creates in every project; the
+`DisplayForge` subfolder is created when missing); the standalone app downloads
+them. Designer keeps media files open, so a saved pattern is never overwritten:
+following Designer's [content versioning](https://help.disguise.one/designer/content-management/content-versioning),
+a changed pattern is saved as `<name>_v2.png`, `<name>_v3.png`, … and Designer
+swaps the new version in wherever the clip is used. Saving a pattern identical
+to the latest version writes nothing. Large images are
 sent to Designer in 256 KB chunks, so multi-megabyte patterns do not hit
 Designer's request size limit (HTTP 413).
 
@@ -220,7 +226,7 @@ embedded browser may not provide WebGL; a fallback message is shown).
 | Shape generator, compound curves, transforms | ✔ | ✔ |
 | Population masks (screen shape and variants) | ✔ (saved in `objects/DxTexture`, set on the LED screen) | ✔ (download PNG) |
 | Import OBJ | ✔ (project OBJs or local file; tile resolution from the LED screen) | ✔ (local file) |
-| Test patterns | ✔ (saved in `objects/VideoFile/TestPattern`) | ✔ (download PNG) |
+| Test patterns | ✔ (saved in `objects/VideoFile/test patterns/DisplayForge`, versioned) | ✔ (download PNG) |
 
 ---
 
